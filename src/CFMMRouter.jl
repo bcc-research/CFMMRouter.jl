@@ -1,6 +1,6 @@
-module CFMMRouting
+module CFMMRouter
 
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 
 include("utils.jl")
 include("cfmms.jl")
