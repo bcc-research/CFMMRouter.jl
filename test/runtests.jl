@@ -1,6 +1,7 @@
-using CFMMRouting
+using CFMMRouter
 using Test
 
-@testset "CFMMRouting.jl" begin
-    # Write your tests here.
-end
+using LinearAlgebra, Random
+using Convex, SCS
+
+include("newton.jl")
