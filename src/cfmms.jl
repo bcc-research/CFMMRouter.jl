@@ -51,8 +51,8 @@ struct ProductTwoCoin{T} <: CFMM{T}
 end
 
 function ProductTwoCoin(R, γ, idx)
-    @assert length(R) == 2
-    @assert length(idx) == 2
+    length(R) == 2 && throw(ArgumentError("length of R must be 2 for *TwoCoin constructors"))
+    length(idx) == 2 && throw(ArgumentError("length of idx must be 2 for *TwoCoin constructors"))
 
     T = eltype(R)
 

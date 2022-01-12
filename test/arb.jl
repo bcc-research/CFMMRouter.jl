@@ -19,5 +19,9 @@
         find_arb!(Δ, Λ, equal_pool, v)
         @test Δ[1] ≈ 0 && Δ[2] ≈ sqrt(2) - 1
         @test Λ[1] ≈ 1 - sqrt(1/2) && Λ[2] ≈ 0
+
+        # No-arb in the fee case
+        equal_pool_fee = ProductTwoCoin([1, 1], .9, [1, 2])
+        v = MVector(.95, 1.0)
     end
 end
