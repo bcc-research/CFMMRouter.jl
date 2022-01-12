@@ -1,10 +1,12 @@
-name = "CFMMRouting"
+name = "CFMMRouter"
 uuid = "591468fd-1d79-403f-bb2b-3ef7f4d90130"
 authors = ["Guillermo Angeris", "Theo Diamandis"]
 version = "0.1.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 julia = "1.7"

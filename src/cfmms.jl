@@ -1,3 +1,6 @@
+export CFMM, ProductTwoCoin
+export find_arb!
+
 abstract type CFMM{T} end
 
 # Credit: Chris Rackauckas
@@ -7,6 +10,12 @@ abstract type CFMM{T} end
     Ai::Vector{Int}
 end
 
+@def add_two_coin_fields begin
+    R::MVector{2,T}
+    γ::T
+    Ai::MVector{2,UInt}
+end
+
 Base.length(c::CFMM) = length(c.Ai)
 
 
@@ -14,18 +23,18 @@ Base.length(c::CFMM) = length(c.Ai)
 # |                              CFMM Definitions                              |
 # ------------------------------------------------------------------------------
 # Each CFMM needs to implement its conjugate function
-struct CSMM{T} <: CFMM{T}
+struct Sum{T} <: CFMM{T}
     @add_generic_fields
 end
-function find_arb!(Δ::VT, Λ::VT, cfmm::CSMM{T}, ν::VT) where {T, VT <: Vector{T}}
+function find_arb!(Δ::VT, Λ::VT, cfmm::Sum{T}, ν::VT) where {T, VT <: Vector{T}}
     #TODO:
 end
 
-struct GMMM{T} <: CFMM{T}
+struct Product{T} <: CFMM{T}
     @add_generic_fields
 end
 
-struct WGMMM{T} <: CFMM{T}
+struct GeometricMean{T} <: CFMM{T}
     @add_generic_fields
     w::Vector{T}
 end
@@ -34,6 +43,49 @@ struct Curve{T} <: CFMM{T}
     @add_generic_fields
     α::T
     β::T
+end
+
+# Two coin specific cases
+struct ProductTwoCoin{T} <: CFMM{T}
+    @add_two_coin_fields
+end
+
+function ProductTwoCoin(R, γ, idx)
+    @assert length(R) == 2
+    @assert length(idx) == 2
+
+    T = eltype(R)
+
+    if T <: Integer
+        T = Float64
+    end
+
+    γ_T = convert(T, γ)
+    idx_uint = convert.(UInt, idx)
+
+    return ProductTwoCoin{T}(
+        MVector{2, T}(R),
+        γ_T,
+        MVector{2, UInt}(idx_uint)
+    )
+end
+
+# Solves the minimum arbitrage problem for the two-coin constant product case.
+# Assumes that v > 0.
+function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT <: MVector{2, T}}
+    R, γ = cfmm.R, cfmm.γ
+    k = R[1]*R[2]
+
+    Δ[1] = max(sqrt(γ*(v[2]/v[1])*k) - R[1], zero(T))/γ
+    Δ[2] = max(sqrt(γ*(v[1]/v[2])*k) - R[2], zero(T))/γ
+
+    Λ[1] = R[1]*max(1 - sqrt((v[2]*R[2])/(γ*v[1])), 0)
+    Λ[2] = R[2]*max(1 - sqrt((v[1]*R[1])/(γ*v[2])), 0)
+end
+
+struct GeometricMeanTwoCoin{T} <: CFMM{T}
+    @add_two_coin_fields
+    w::SVector{2, T}
 end
 
 # TODO: maybe get rid of this? thought it may be useful for data parallelization 
