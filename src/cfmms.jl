@@ -50,7 +50,7 @@ struct ProductTwoCoin{T} <: CFMM{T}
     @add_two_coin_fields
 end
 
-function ProductTwoCoin(R, γ, idx)
+function two_coin_check_cast(R, γ, idx)
     length(R) != 2 && throw(ArgumentError("length of R must be 2 for *TwoCoin constructors"))
     length(idx) != 2 && throw(ArgumentError("length of idx must be 2 for *TwoCoin constructors"))
 
@@ -63,6 +63,12 @@ function ProductTwoCoin(R, γ, idx)
     γ_T = convert(T, γ)
     idx_uint = convert.(UInt, idx)
 
+    return γ_T, idx_uint, T
+end
+
+function ProductTwoCoin(R, γ, idx)
+    γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
+
     return ProductTwoCoin{T}(
         MVector{2, T}(R),
         γ_T,
@@ -70,22 +76,43 @@ function ProductTwoCoin(R, γ, idx)
     )
 end
 
-# Solves the minimum arbitrage problem for the two-coin constant product case.
-# Assumes that v > 0.
+# See App. A of "An Analysis of Uniswap Markets"
+@inline prod_arb_δ(m, r, k, γ) = max(sqrt(γ*m*k) - r, 0)/γ
+@inline prod_arb_λ(m, r, k, γ) = max(r - sqrt(k/(m*γ)), 0)
+
+# Solves the maximum arbitrage problem for the two-coin constant product case.
+# Assumes that v > 0 and γ > 0.
 function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT <: MVector{2, T}}
     R, γ = cfmm.R, cfmm.γ
     k = R[1]*R[2]
 
-    Δ[1] = max(sqrt(γ*(v[2]/v[1])*k) - R[1], zero(T))/γ
-    Δ[2] = max(sqrt(γ*(v[1]/v[2])*k) - R[2], zero(T))/γ
+    Δ[1] = prod_arb_δ(v[2]/v[1], R[1], k, γ)
+    Δ[2] = prod_arb_δ(v[1]/v[2], R[2], k, γ)
 
-    Λ[1] = R[1]*max(1 - sqrt((v[2]*R[2])/(γ*v[1])), 0)
-    Λ[2] = R[2]*max(1 - sqrt((v[1]*R[1])/(γ*v[2])), 0)
+    Λ[1] = prod_arb_λ(v[1]/v[2], R[1], k, γ)
+    Λ[2] = prod_arb_λ(v[2]/v[1], R[2], k, γ)
 end
 
 struct GeometricMeanTwoCoin{T} <: CFMM{T}
     @add_two_coin_fields
     w::SVector{2, T}
+end
+
+@inline geom_arb_δ(m, r1, r2, η, γ) = max((γ*m*η*r1*r2^η)^(1/(η+1)) - r2, 0)/γ
+@inline geom_arb_λ(m, r1, r2, η, γ) = max(r1 - ((r2*r1^(1/η))/(η*γ*m))^(η/(1+η)), 0)
+
+# Solves the maximum arbitrage problem for the two-coin constant product case.
+# Assumes that v > 0 and w > 0.
+function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {T, VT <: MVector{2, T}}
+    R, γ, w = cfmm.R, cfmm.γ, cfmm.w
+
+    η = w[1]/w[2]
+
+    Δ[1] = geom_arb_δ(v[2]/v[1], R[2], R[1], 1/η, γ)
+    Δ[2] = geom_arb_δ(v[1]/v[2], R[1], R[2], η, γ)
+
+    Λ[1] = geom_arb_λ(v[1]/v[2], R[1], R[2], η, γ)
+    Λ[2] = geom_arb_λ(v[2]/v[1], R[2], R[1], 1/η, γ)
 end
 
 # TODO: maybe get rid of this? thought it may be useful for data parallelization 
@@ -116,5 +143,5 @@ end
 
 function execute!(trade::Trade)
     !is_valid(trade) && throw(ArgumentError("Invalid trade"))
-    @. trade.cfmm.R += γ*trade.Δ - trade.Λ
+    @. trade.cfmm.R += trade.Δ - trade.Λ
 end
