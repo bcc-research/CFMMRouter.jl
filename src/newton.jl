@@ -26,9 +26,9 @@ mutable struct NewtonSolver{T}
             Hpd = zeros(T, 2ni, 2ni),
             bpd = zeros(T, 2ni),
             fx = zeros(T, m),
-            # TODO: make this its own efficient thing
-            DfxT = sparse(1:2ni, 1:2ni, -ones(T, 2ni), 2ni, m),
-            # ∇ϕ = zeros(2ni),
+            # TODO: make this its own efficient thing with custom mul! & mul!(_, adjoint(Dfx), x)
+            DfxT = vcat(Matrix(I, 2ni, 2ni), ones(2ni)'), #sparse(1:2ni, 1:2ni, -ones(T, 2ni), 2ni, m),
+            ∇fₘ = zeros(2ni),
             Rnew = zeros(T, ni),
             x⁺ = zeros(T, 2ni),
             λ⁺ = zeros(T, m),
@@ -44,32 +44,46 @@ end
 
 # Updates f(x) = [f₁(x) ... fₘ(x)]ᵀ, Df(x) = [∇f₁(x) ... ∇fₘ(x)]ᵀ, rcent, rdual
 function update_state!(ns::NewtonSolver)
+    R = ns.trade.cfmm.R
+    γ = ns.trade.cfmm.γ
+    ϕ = ns.trade.cfmm.ϕ
+    ∇ϕ! = ns.trade.cfmm.∇ϕ!
+    Rnew = ns.cache.Rnew
+
+    x, λ = ns.x, ns.λ
+    fx = ns.cache.fx
+    ∇fₘ = ns.cache.∇fₘ
+
+    t, μ = ns.t, ns.μ
+    m, ni = ns.m, ns.ni
+    rcent, rdual = ns.rcent, ns.rdual
+
     # 1. update cache: f(x) and Df(x)
     # Update f(x)
-    @. @views ns.cache.Rnew = ns.trade.cfmm.R + ns.trade.cfmm.γ * ns.x[1:ni] - ns.x[ni+1:end]
-    @. ns.cache.fx[1:2ni] = -x
-    ns.cache.fx[end] = ns.trade.cfmm.ϕ(ns.trade.cfmm.R) - ns.trade.cfmm.ϕ(ns.cache.Rnew)
+    @. @views Rnew = R + γ * x[1:ni] - x[ni+1:end]
+    @. fx[1:2ni] = -x
+    fx[end] = ϕ(R) - ϕ(Rnew)
     
     # Update Df(x) [Note that the top 2ni x 2ni block is -I]: [-I ; ∇ϕᵀ]
-    @views ns.trade.cfmm.∇ϕ!(ns.cache.∇ϕ[1:ni], ns.cache.Rnew)
-    ns.cache.∇ϕ[1:ni] .*= γ
-    ns.cache.∇ϕ[ni+1:end] .= -ns.cache.∇ϕ[1:ni]
+    @views ∇ϕ!(∇fₘ[1:ni], Rnew)
+    ∇fₘ[1:ni] .*= γ
+    ∇fₘ[ni+1:end] .= -∇fₘ[1:ni]
 
     # Compute η̂ = -f(Δ, Λ)ᵀλ → update t
-    η̂ = -dot(λ, ns.cache.fx)
-    ns.t = ns.μ * ns.m / η̂
+    η̂ = -dot(λ, fx)
+    t = μ * m / η̂
 
 
     # 2. Compute residuals
-    @. ns.rcent = -ns.λ * ns.cache.fx - 1/t
+    @. rcent = -λ * fx - 1/t
     # rdual = ∇²f₀(x) + Df(x)ᵀλ = 
-    @. @views ns.rdual = ns.λ[1:2ni] + ns.λ[end] * ns.cache.∇ϕ
+    @. @views rdual = λ[1:2ni] + λ[end] * ∇fₘ
 
     return nothing
 end 
 
 
-# Newtown system solve
+# Newtown system solve 
 #   [∇²f₀(x) + ∑λᵢ∇²fᵢ(x)   Df(x)ᵀ     ] [dx]   =   [∇f₀(x) + Df(x)ᵀλ]
 #   [-diag(λ)Df(x)          -diag(f(x))] [dλ]       [-diag(λ)f(x) - (1/t)𝟏]
 # Uses block elimination:
@@ -86,18 +100,26 @@ end
 function compute_search_direction!(ns::NewtonSolver)    
     Hpd = ns.cache.Hpd
     bpd = ns.cache.bpd
+    dx = ns.dx
+    λ = ns.λ
+    ∇²ϕ = ns.trade.cfmm.∇²ϕ
+    ∇ϕ = ns.trade.cfmm.∇ϕ
+    fx = ns.cache.fx
+    Rnew = ns.cache.Rnew
+    DfxT = ns.cache.DfxT
+    rcent = ns.rcent
 
     # 1. Compute dx = [∇²f₀(x) + ∑λᵢ∇²fᵢ(x) + ∑(λᵢ / -fᵢ(x))*∇fᵢ(x)∇fᵢ(x)ᵀ] \ -[rdual + Df(x)ᵀ*diag(f(x))⁻¹rcent]
-    Hpd .= ns.λ[end]*[γ*I -I]'*ns.trade.cfmm.∇²ϕ(ns.cache.Rnew)*[γ*I -I]
-    Hpd[diagind(Hpd)[1:2ni]] .+= -ns.λ[1:2ni] ./ ns.cache.fx[1:2ni]
-    ∇fₘ = [γ*ns.trade.cfmm.∇ϕ(ns.cache.Rnew); -ns.trade.cfmm.∇ϕ(ns.cache.Rnew)]
-    Hpd .+= -ns.λ[end] / ns.cache.fx[end] * ∇fₘ*∇fₘ'
-    bpd .= ns.cache.DfxT * (rcent ./ ns.cache.fx)
+    Hpd .= λ[end]*[γ*I -I]'*∇²ϕ(Rnew)*[γ*I -I]
+    Hpd[diagind(Hpd)[1:2ni]] .+= -λ[1:2ni] ./ fx[1:2ni]
+    ∇fₘ = [γ*∇ϕ(Rnew); -∇ϕ(Rnew)]
+    Hpd .+= -λ[end] / fx[end] * ∇fₘ*∇fₘ'
+    bpd .= DfxT * (rcent ./ fx)
     bpd .+= -rdual
-    ldiv!(ns.dx, Hpd, bpd)
+    ldiv!(dx, Hpd, bpd)
 
     # 2. Compute dλ = -diag(f(x))⁻¹ * (diag(λ)*Df(x)*dx - rcent)
-    ns.dλ = -Diagonal(1 ./ ns.cache.fx) * (Diagonal(ns.λ) * ns.cache.DfxT' * ns.dx - ns.rcent)
+    ns.dλ = -Diagonal(1 ./ fx) * (Diagonal(λ) * DfxT' * dx - rcent)
 
     return nothing
 end
@@ -105,21 +127,22 @@ end
 
 # Backtracking line search
 function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
-    x = ns.x
-    λ = ns.λ
-    dx = ns.dx
-    dλ = ns.dλ
-    x⁺ = cache.x⁺
-    λ⁺ = cache.λ⁺
+    x, λ = ns.x, ns.λ
+    dx, dλ = ns.dx, ns.dλ
+    x⁺, λ⁺ = cache.x⁺, cache.λ⁺
+    rcent, rdual = ns.rcent, ns.rdual
 
     # Largest positive step length ≤ 1 that gives λ⁺ ≥ 0 (BV pg 613)
     smax = min(one(T), minimum(i -> dλ[i] < 0 ? -λ[i]/dλ[i] : Inf , 1:length(λ)))
     s = 0.99smax
 
+    # Compute current residual
+    residual_current = sqrt(sum(x->x^2, rcent) + sum(x->x^2, rdual))
+
     # Line Search
     @. x⁺ = x + s*dx
     @. λ⁺ = λ + s*dλ
-    while residual(x⁺, λ⁺) > (1 - α * s) * residual(x, λ)
+    while residual(x⁺, λ⁺) > (1 - α * s) * residual_current
         s *= β
         @. x⁺ = x + s*dx
         @. λ⁺ = λ + s*dλ
@@ -133,14 +156,23 @@ function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
 end
 
 function residual(ns, x, λ)
-    Rnew = ns.trade.cfmm.R + ns.trade.cfmm.γ * x[1:ni] - x[ni+1:end]
-    fx = vcat(-x, s.trade.cfmm.ϕ(ns.trade.cfmm.R) - ns.trade.cfmm.ϕ(Rnew))
-    ∇fₘ = [γI -I]'*ns.trade.cfmm.∇ϕ(Rnew)
-    rcent = -λ * fx - 1/ns.t
-    rdual = λ[1:2ni] + λ[end] * ∇fₘ
+    R, γ = ns.trade.cfmm.R, ns.trade.cfmm.γ
+    ϕ, ∇ϕ = ns.trade.cfmm.ϕ, ns.trade.cfmm.∇ϕ
+    x, λ = ns.x, ns.λ
+    ni = ns.ni
+    t = ns.t
+    Rnew, fx, ∇fₘ = ns.cache.Rnew, ns.cache.fx, ns.cache.∇fₘ
+    rcent⁺, rdual⁺ = ns.cache.rcent⁺, ns.cache.rdual⁺
 
-    return sqrt(sum(x->x^2, rcent) + sum(x->x^2, rdual))
+    @views @. Rnew = R + γ * x[1:ni] - x[ni+1:end]
+    fx = vcat(-x, ϕ(R) - ϕ(Rnew))
+    ∇fₘ = [γI -I]'*∇ϕ(Rnew)
+    rcent⁺ = -λ * fx - 1/t
+    @views rdual⁺ = λ[1:2ni] + λ[end] * ∇fₘ
+
+    return sqrt(sum(x->x^2, rcent⁺) + sum(x->x^2, rdual⁺))
 end
+
 
 function solve!(ns::NewtonSolver; max_iters=100)
     iters = 0
