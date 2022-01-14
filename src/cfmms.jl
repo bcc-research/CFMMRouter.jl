@@ -27,6 +27,7 @@ struct Sum{T} <: CFMM{T}
     @add_generic_fields
 end
 function find_arb!(Δ::VT, Λ::VT, cfmm::Sum{T}, ν::VT) where {T, VT <: Vector{T}}
+    error("unimplemented")
     #TODO:
 end
 
@@ -101,7 +102,7 @@ end
 @inline geom_arb_δ(m, r1, r2, η, γ) = max((γ*m*η*r1*r2^η)^(1/(η+1)) - r2, 0)/γ
 @inline geom_arb_λ(m, r1, r2, η, γ) = max(r1 - ((r2*r1^(1/η))/(η*γ*m))^(η/(1+η)), 0)
 
-# Solves the maximum arbitrage problem for the two-coin constant product case.
+# Solves the maximum arbitrage problem for the two-coin geometric mean case.
 # Assumes that v > 0 and w > 0.
 function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {T, VT <: MVector{2, T}}
     R, γ, w = cfmm.R, cfmm.γ, cfmm.w
