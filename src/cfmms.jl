@@ -102,6 +102,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT 
 
     Λ[1] = prod_arb_λ(v[1]/v[2], R[1], k, γ)
     Λ[2] = prod_arb_λ(v[2]/v[1], R[2], k, γ)
+    return nothing
 end
 
 struct GeometricMeanTwoCoin{T} <: CFMM{T}
@@ -124,4 +125,5 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {
 
     Λ[1] = geom_arb_λ(v[1]/v[2], R[1], R[2], η, γ)
     Λ[2] = geom_arb_λ(v[2]/v[1], R[2], R[1], 1/η, γ)
+    return nothing
 end
