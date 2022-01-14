@@ -5,6 +5,7 @@
 
 mutable struct NewtonSolver{T}
     cfmm::CFMM{T}
+    ν::Vector{T}
     rdual::Vector{T}
     rcent::Vector{T}
     x::Vector{T}
@@ -17,7 +18,7 @@ mutable struct NewtonSolver{T}
     tol_feas::T
     tol::T
     cache
-    function NewtonSolver(cfmm::CFMM{T}; μ=10, tol_feas=1e-10, tol=1e-10) where {T}
+    function NewtonSolver(cfmm::CFMM{T}, ν::Vector{T}; μ=10, tol_feas=1e-10, tol=1e-10) where {T}
         ni = length(cfmm)
         m = 2ni + 1
         cache = (
@@ -34,10 +35,10 @@ mutable struct NewtonSolver{T}
             rcent⁺ = zeros(T, m)
         )
         η̂ = T(Inf)
-        return new{T}(cfmm, 
+        return new{T}(cfmm, ν,
                       zeros(T, 2ni), zeros(T, m),
-                      zeros(T, 2ni), ones(T, 2ni),
-                      zeros(T, m), zeros(T, m),
+                      vcat(ones(T, ni), T(0.5)*ones(T, ni)), zeros(T, 2ni),
+                      ones(T, m), zeros(T, m),
                       T(μ), η̂, zero(T), T(tol_feas), T(tol),
                       cache
         )
@@ -59,8 +60,8 @@ function update_state!(ns::NewtonSolver)
     x, λ = ns.x, ns.λ
     fx = ns.cache.fx
     ∇fₘ = ns.cache.∇fₘ
+    Dfx = ns.cache.Dfx
 
-    t, μ = ns.t, ns.μ
     m, ni = n_constraints(ns), n_coins(ns)
     rcent, rdual = ns.rcent, ns.rdual
 
@@ -74,16 +75,19 @@ function update_state!(ns::NewtonSolver)
     @views ∇ϕ!(∇fₘ[1:ni], Rnew)
     ∇fₘ[1:ni] .*= γ
     ∇fₘ[ni+1:end] .= -∇fₘ[1:ni]
+    Dfx[end, :] .= ∇fₘ
 
     # Compute η̂ = -f(Δ, Λ)ᵀλ → update t
-    η̂ = -dot(λ, fx)
-    t = μ * m / η̂
+    ns.η̂ = -dot(λ, fx)
+    ns.t = ns.μ * m / ns.η̂
 
 
     # 2. Compute residuals
-    @. rcent = -λ * fx - 1/t
-    # rdual = ∇²f₀(x) + Df(x)ᵀλ = 
-    @. @views rdual = λ[1:2ni] + λ[end] * ∇fₘ
+    @. rcent = -λ * fx - 1/ns.t
+    # rdual = ∇f₀(x) + Df(x)ᵀλ = 
+    rdual[1:ni] .= ns.ν
+    rdual[ni+1:2ni] .= -ns.ν
+    @. @views rdual .+= λ[1:2ni] + λ[end] * ∇fₘ
 
     return nothing
 end 
@@ -128,8 +132,8 @@ function compute_search_direction!(ns::NewtonSolver{T}) where {T}
     Hpd .+= -λ[end] / fx[end] * ∇fₘ*∇fₘ'
     bpd .= Dfx' * (rcent ./ fx)
     bpd .+= -rdual
-    cholesky!(Symmetric(Hpd))
-    ldiv!(dx, Hpd, bpd)
+    # bunchkaufman!(Symmetric(Hpd))
+    dx .= Hpd \ bpd
 
     # 2. Compute dλ = -diag(f(x))⁻¹ * (diag(λ)*Df(x)*dx - rcent)
     ns.dλ = -Diagonal(1 ./ fx) * (Diagonal(λ) * Dfx * dx - rcent)
@@ -155,10 +159,15 @@ function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
     # Line Search
     @. x⁺ = x + s*dx
     @. λ⁺ = λ + s*dλ
-    while residual(ns, x⁺, λ⁺) > (1 - α * s) * residual_current
+    iter = 0
+    #TODO: caching efficiency
+    # x in particular
+    while f_x⁺_geq_0(ns, x⁺) || residual(ns, x⁺, λ⁺) > (1 - α * s) * residual_current
         s *= β
         @. x⁺ = x + s*dx
         @. λ⁺ = λ + s*dλ
+        iter += 1
+        iter > 10 && (Main.x[] = smax; error("Maximum iterations hit in line search"))
     end
 
     # Update variables
@@ -167,6 +176,11 @@ function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
 
     return nothing
 end
+
+@inline function f_x⁺_geq_0(ns, x⁺)
+    return any(xi -> -xi ≥ 0, x⁺) || ns.cfmm.ϕ(ns.cfmm.R) - ns.cfmm.ϕ(ns.cfmm.R + ns.cfmm.γ * x⁺[1:n_coins(ns)] - x⁺[n_coins(ns)+1:end]) ≥ 0
+end
+    
 
 function residual(ns::NewtonSolver{T}, x, λ) where {T}
     R, γ = ns.cfmm.R, ns.cfmm.γ
@@ -180,15 +194,22 @@ function residual(ns::NewtonSolver{T}, x, λ) where {T}
     fx = vcat(-x, ϕ(R) - ϕ(Rnew))
     grad_cache = zeros(T, ni)
     ∇ϕ!(grad_cache, Rnew)
-    ∇fₘ = [γ*grad_cache; -grad_cache]
+    ∇fₘ .= [γ*grad_cache; -grad_cache]
     @. rcent⁺ = -λ * fx - 1/t
-    @. @views rdual⁺ = λ[1:2ni] + λ[end] * ∇fₘ
+    Main.x[] = λ
+    @views @. rdual⁺ = λ[1:2ni] + λ[end] * ∇fₘ
 
     return sqrt(sum(x->x^2, rcent⁺) + sum(x->x^2, rdual⁺))
 end
 
+# TODO: looks like rdual and rcent have an issue
+function solve!(ns::NewtonSolver; max_iters=100, verbose=false)
+    if verbose
+        headers = ["iter", "rdual", "rcent", "dual gap", "obj", "time"]
+        solve_time_start =  time_ns()
+        print_header(headers)
+    end
 
-function solve!(ns::NewtonSolver; max_iters=100)
     iters = zero(UInt)
     while (ns.η̂ > ns.tol || norm(ns.rdual) > ns.tol_feas) && iters < max_iters
         update_state!(ns)
@@ -196,5 +217,21 @@ function solve!(ns::NewtonSolver; max_iters=100)
         take_step!(ns)
 
         iters += 1
+        if verbose
+            ni = n_coins(ns)
+            arbed = ns.cache.x⁺
+            @views @. arbed[1:ni] = ns.x[1:ni] - ns.x[ni+1:2ni]
+            print_iter_func((
+                string(iters),
+                norm(ns.rdual),
+                norm(ns.rcent),
+                ns.η̂,
+                dot(ns.ν, arbed[1:ni]),
+                (time_ns() - solve_time_start) / 1e9
+            ))
+        end
     end
+    verbose && print_footer()
+
+    return nothing
 end
