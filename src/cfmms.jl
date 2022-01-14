@@ -7,7 +7,7 @@ abstract type CFMM{T} end
 @def add_generic_fields begin
     R::Vector{T}
     γ::T
-    Ai::Vector{Int}
+    Ai::Vector{Int}                 # idx vector: jth coin in CFMM is Ai[j]
 end
 
 @def add_two_coin_fields begin
@@ -17,6 +17,17 @@ end
 end
 
 Base.length(c::CFMM) = length(c.Ai)
+
+# solves min νᵀAᵢ(Λᵢ - Δᵢ) s.t. Λᵢ, Δᵢ ≥ 0 and ϕ(Rᵢ + γΔᵢ - Λᵢ) ≥ ϕ(Rᵢ)
+# overwrites Δ and Λ
+# returns false if no arb exists (iszero(Δ) && iszero(Λ)), true ow
+# THIS DEF IS JUST FOR THE DOCTSTRING
+"""
+    find_arb!(Δ, Λ, cfmm, ν)
+
+TODO
+"""
+function find_arb! end
 
 
 # ------------------------------------------------------------------------------
@@ -113,35 +124,4 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {
 
     Λ[1] = geom_arb_λ(v[1]/v[2], R[1], R[2], η, γ)
     Λ[2] = geom_arb_λ(v[2]/v[1], R[2], R[1], 1/η, γ)
-end
-
-# TODO: maybe get rid of this? thought it may be useful for data parallelization 
-struct Trade{T}
-    cfmm::CFMM{T}
-    Λ::Vector{T}
-    Δ::Vector{T}
-end
-
-
-
-
-# solves min νᵀAᵢ(Λᵢ - Δᵢ) s.t. Λᵢ, Δᵢ ≥ 0 and ϕ(Rᵢ + γΔᵢ - Λᵢ) ≥ ϕ(Rᵢ)
-# overwrites Δ and Λ
-# returns false if no arb exists (iszero(Δ) && iszero(Λ)), true ow
-function find_arb!(trade::Trade{T}, prices::Vector{T}) where {T}
-    return find_arb!(trade.Δ, trade.Λ, trade.cfmm, @view(prices[trade.cfmm.Ai]))
-end
-
-
-# Some code to execute trades in CFMMs, maybe useless?
-function is_valid(trade::Trade{T}) where {T <: Number}
-    #TODO:
-    return false
-    # return trade.Δ ≥ zero(T) && trade.Λ ≥ zero(T) && trade.cfmm.accept_trade(trade.Δ, trade.Λ) 
-    # ϕ(R + γΔ - Λ) == ϕ(R)
-end
-
-function execute!(trade::Trade)
-    !is_valid(trade) && throw(ArgumentError("Invalid trade"))
-    @. trade.cfmm.R += trade.Δ - trade.Λ
 end

@@ -4,7 +4,7 @@
 # x ⧋ [Δ; Λ] ⟹ ϕ(R + γΔ - Λ) = ϕ(R + [γI -I]x)
 
 mutable struct NewtonSolver{T}
-    trade::Trade{T}
+    cfmm::CFMM{T}
     rdual::Vector{T}
     rcent::Vector{T}
     x::Vector{T}
@@ -19,8 +19,8 @@ mutable struct NewtonSolver{T}
     ni::Int,
     m::Int,
     cache
-    function NewtonSolver(trade::Trade{T}) where {T}
-        ni = length(trade.cfmm, μ=10, tol_feas=1e-10, tol=1e-10)
+    function NewtonSolver(cfmm::CFMM{T}; μ=10, tol_feas=1e-10, tol=1e-10) where {T}
+        ni = length(cfmm)
         m = 2ni + 1
         cache = (
             Hpd = zeros(T, 2ni, 2ni),
@@ -34,7 +34,7 @@ mutable struct NewtonSolver{T}
             λ⁺ = zeros(T, m),
         )
         η̂ = Inf
-        return new{T}(trade, zeros(T, 2ni, 2ni), zeros(T, 2ni), ones(T, 2ni),
+        return new{T}(cfmm, zeros(T, 2ni, 2ni), zeros(T, 2ni), ones(T, 2ni),
                       zeros(T, m), zeros(T, m),
                       μ, η̂, zero(T), tol_feas, tol, ni, m, cache
         )
@@ -44,10 +44,10 @@ end
 
 # Updates f(x) = [f₁(x) ... fₘ(x)]ᵀ, Df(x) = [∇f₁(x) ... ∇fₘ(x)]ᵀ, rcent, rdual
 function update_state!(ns::NewtonSolver)
-    R = ns.trade.cfmm.R
-    γ = ns.trade.cfmm.γ
-    ϕ = ns.trade.cfmm.ϕ
-    ∇ϕ! = ns.trade.cfmm.∇ϕ!
+    R = ns.cfmm.R
+    γ = ns.cfmm.γ
+    ϕ = ns.cfmm.ϕ
+    ∇ϕ! = ns.cfmm.∇ϕ!
     Rnew = ns.cache.Rnew
 
     x, λ = ns.x, ns.λ
@@ -102,8 +102,8 @@ function compute_search_direction!(ns::NewtonSolver)
     bpd = ns.cache.bpd
     dx = ns.dx
     λ = ns.λ
-    ∇²ϕ = ns.trade.cfmm.∇²ϕ
-    ∇ϕ = ns.trade.cfmm.∇ϕ
+    ∇²ϕ = ns.cfmm.∇²ϕ
+    ∇ϕ = ns.cfmm.∇ϕ
     fx = ns.cache.fx
     Rnew = ns.cache.Rnew
     DfxT = ns.cache.DfxT
@@ -156,8 +156,8 @@ function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
 end
 
 function residual(ns, x, λ)
-    R, γ = ns.trade.cfmm.R, ns.trade.cfmm.γ
-    ϕ, ∇ϕ = ns.trade.cfmm.ϕ, ns.trade.cfmm.∇ϕ
+    R, γ = ns.cfmm.R, ns.cfmm.γ
+    ϕ, ∇ϕ = ns.cfmm.ϕ, ns.cfmm.∇ϕ
     x, λ = ns.x, ns.λ
     ni = ns.ni
     t = ns.t
