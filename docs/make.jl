@@ -36,13 +36,13 @@ end
 examples_nav = fix_suffix.(joinpath.("examples", examples))
 
 makedocs(;
-    modules=[Chordal],
-    authors="Theo Diamandis",
+    modules=[CFMMRouter],
+    authors=["Guillermo Angeris", "Theo Diamandis"],
     repo="https://github.com/angeris/CFMMRouter.jl/blob/{commit}{path}#L{line}",
     sitename="CFMMRouter.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://tjdiamandis.github.io/Chordal.jl",
+        canonical="https://tjdiamandis.github.io/CFMMRouter.jl",
         assets=String[],
     ),
     pages=[
