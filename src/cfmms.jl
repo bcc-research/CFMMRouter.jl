@@ -1,4 +1,4 @@
-export CFMM, ProductTwoCoin
+export CFMM, ProductTwoCoin, GeometricMeanTwoCoin
 export find_arb!
 
 abstract type CFMM{T} end
@@ -28,6 +28,10 @@ Base.length(c::CFMM) = length(c.Ai)
 TODO
 """
 function find_arb! end
+
+
+function ϕ(::CFMM) end
+function ∇ϕ(::CFMM) end
 
 
 # ------------------------------------------------------------------------------
@@ -88,6 +92,17 @@ function ProductTwoCoin(R, γ, idx)
     )
 end
 
+function ϕ(cfmm::ProductTwoCoin; R=nothing)
+    R = isnothing(R) ? cfmm.R : R
+    return R[1] * R[2]
+end
+function ∇ϕ!(R⁺, cfmm::ProductTwoCoin; R=nothing)
+    R = isnothing(R) ? cfmm.R : R
+    R⁺[1] = R[2]
+    R⁺[2] = R[1]
+    return nothing
+end
+
 # See App. A of "An Analysis of Uniswap Markets"
 @inline prod_arb_δ(m, r, k, γ) = max(sqrt(γ*m*k) - r, 0)/γ
 @inline prod_arb_λ(m, r, k, γ) = max(r - sqrt(k/(m*γ)), 0)
@@ -111,6 +126,30 @@ struct GeometricMeanTwoCoin{T} <: CFMM{T}
     w::SVector{2, T}
 end
 
+function GeometricMeanTwoCoin(R, w, γ, idx)
+    γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
+
+    return GeometricMeanTwoCoin{T}(
+        MVector{2, T}(R),
+        γ_T,
+        MVector{2, UInt}(idx_uint),
+        SVector{2, T}(w),
+    )
+end
+
+function ϕ(cfmm::GeometricMeanTwoCoin; R=nothing)
+    R = isnothing(R) ? cfmm.R : R
+    w = cfmm.w
+    return R[1]^w[1] * R[2]^w[2]
+end
+function ∇ϕ!(R⁺, cfmm::GeometricMeanTwoCoin; R=nothing)
+    R = isnothing(R) ? cfmm.R : R
+    w = cfmm.w
+    R⁺[1] = w[1] * (R[2]/R[1])^w[2]
+    R⁺[2] = w[2] * (R[1]/R[2])^w[1]
+    return nothing
+end
+
 @inline geom_arb_δ(m, r1, r2, η, γ) = max((γ*m*η*r1*r2^η)^(1/(η+1)) - r2, 0)/γ
 @inline geom_arb_λ(m, r1, r2, η, γ) = max(r1 - ((r2*r1^(1/η))/(η*γ*m))^(η/(1+η)), 0)
 
@@ -121,10 +160,10 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {
 
     η = w[1]/w[2]
 
-    Δ[1] = geom_arb_δ(v[2]/v[1], R[2], R[1], 1/η, γ)
-    Δ[2] = geom_arb_δ(v[1]/v[2], R[1], R[2], η, γ)
+    Δ[1] = geom_arb_δ(v[2]/v[1], R[2], R[1], η, γ)
+    Δ[2] = geom_arb_δ(v[1]/v[2], R[1], R[2], 1/η, γ)
 
-    Λ[1] = geom_arb_λ(v[1]/v[2], R[1], R[2], η, γ)
-    Λ[2] = geom_arb_λ(v[2]/v[1], R[2], R[1], 1/η, γ)
+    Λ[1] = geom_arb_λ(v[1]/v[2], R[1], R[2], 1/η, γ)
+    Λ[2] = geom_arb_λ(v[2]/v[1], R[2], R[1], η, γ)
     return nothing
 end
