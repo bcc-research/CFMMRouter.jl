@@ -51,13 +51,13 @@ function route!(r::R) where {R <: Router}
         # Otherwise just return the objective
         if func !== nothing
             acc = 0.0
-        end
 
-        for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.c)
-            acc += @views dot(v[c.Ai], Δ) - dot(v[c.Ai], Λ)
-        end
+            for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.c)
+                acc += @views dot(v[c.Ai], Δ) - dot(v[c.Ai], Λ)
+            end
 
-        return acc - f(r.objective, v)
+            return acc - f(r.objective, v)
+        end
     end
 
     return optimize(Optim.only_fg!(fg!), lower_limit(r.objective), upper_limit(r.objective), v, LBFGS())
