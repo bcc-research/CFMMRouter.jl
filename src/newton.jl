@@ -1,8 +1,25 @@
+export NewtonSolver, solve!
+
 # We solve problems of the form
 # max νᵀ(Λ - Δ) s.t. ϕ(R + γΔ - Λ) - ϕ(R) ≥ 0; Δ, Λ ≥ 0
 # ⟺ min νᵀ(Λ - Δ) s.t. ϕ(R) - ϕ(R + γΔ - Λ) ≤ 0, -Δ ≤ 0, -Λ ≤ 0, 
 # x ⧋ [Δ; Λ] ⟹ ϕ(R + γΔ - Λ) = ϕ(R + [γI -I]x)
 
+# struct DFX{T}
+#     ∇fₘ::Vector{T}
+# end
+
+# # TODO:
+# struct NewtonState{T}
+#     x::Vector{T}
+#     λ::Vector{T}
+#     rdual::Vector{T}
+#     rcent::Vector{T}
+#     fx::Vector{T}
+#     Dfx::DFX{T}
+# end
+
+# TODO: update with component arrays for parameters
 mutable struct NewtonSolver{T}
     cfmm::CFMM{T}
     ν::Vector{T}
@@ -72,9 +89,8 @@ function update_state!(ns::NewtonSolver)
     fx[end] = ϕ(R) - ϕ(Rnew)
     
     # Update Df(x) [Note that the top 2ni x 2ni block is -I]: [-I ; ∇ϕᵀ]
-    @views ∇ϕ!(∇fₘ[1:ni], Rnew)
-    ∇fₘ[1:ni] .*= γ
-    ∇fₘ[ni+1:end] .= -∇fₘ[1:ni]
+    @views ∇ϕ!(∇fₘ[ni+1:end], Rnew)
+    ∇fₘ[1:ni] .= -γ .* ∇fₘ[ni+1:end]
     Dfx[end, :] .= ∇fₘ
 
     # Compute η̂ = -f(Δ, Λ)ᵀλ → update t
@@ -90,7 +106,7 @@ function update_state!(ns::NewtonSolver)
     @. @views rdual .+= λ[1:2ni] + λ[end] * ∇fₘ
 
     return nothing
-end 
+end
 
 
 # Newtown system solve 
@@ -103,7 +119,7 @@ end
 # f₀(x) = -νᵀ[-I I]x    ⟹ ∇f₀(x) = -νᵀ[-I I],   ∇²f₀(x) = 0
 # fᵢ(x) = -eᵢᵀx         ⟹ ∇fᵢ(x) = -eᵢ,         ∇²fᵢ(x) = 0     i = 1, ..., 2ni
 # fᵢ(x) = ϕ(R) - ϕ(R + [γI -I]x) 
-#                       ⟹ ∇fᵢ(x) = [γI -I]ᵀ*∇ϕ(R + [γI -I]x) = [γ∇ϕ(Rnew); - ∇ϕ(Rnew)]
+#                       ⟹ ∇fᵢ(x) = [γI -I]ᵀ*∇ϕ(R + [γI -I]x) = [γ∇ϕ(Rnew); -∇ϕ(Rnew)]
 #                       ⟹ ∇²fᵢ(x) = [γI -I]ᵀ*∇²ϕ(R + [γI -I]x)*[γI -I]
 # We assume access to the gradient and hessian oracles of the CFMM
 # We assume state has been updated (f(x), Df(x), rcent, rdual)
@@ -120,17 +136,19 @@ function compute_search_direction!(ns::NewtonSolver{T}) where {T}
     Dfx = ns.cache.Dfx
     rcent, rdual = ns.rcent, ns.rdual
 
-    # 1. Compute dx = [∇²f₀(x) + ∑λᵢ∇²fᵢ(x) + ∑(λᵢ / -fᵢ(x))*∇fᵢ(x)∇fᵢ(x)ᵀ] \ -[rdual + Df(x)ᵀ*diag(f(x))⁻¹rcent]
+    # 1. Compute dx = [∇²f₀(x) + ∑λᵢ∇²fᵢ(x) + ∑(λᵢ / -fᵢ(x))*∇fᵢ(x)∇fᵢ(x)ᵀ] \ -[rdual + Df(x)ᵀ*diag(f(x))⁻¹rcent]    
     ni = length(ns.cfmm)
     Hmid = zeros(T, ni, ni)
     ∇²ϕ!(Hmid, Rnew)
-    Hpd .= λ[end]*[γ^2*Hmid -γ*Hmid; -γ*Hmid Hmid]
+    Hpd .= λ[end]*[-γ^2*Hmid γ*Hmid; γ*Hmid -Hmid]
     Hpd[diagind(Hpd)[1:2ni]] .+= -λ[1:2ni] ./ fx[1:2ni]
-    grad_cache = zeros(T, ni)
-    ∇ϕ!(grad_cache, Rnew)
-    ∇fₘ = [γ*grad_cache; -grad_cache]
+    ∇fₘ = @view(Dfx[end, :])
     Hpd .+= -λ[end] / fx[end] * ∇fₘ*∇fₘ'
-    bpd .= Dfx' * (rcent ./ fx)
+    
+    # grad_cache = zeros(T, ni)
+    # ∇ϕ!(grad_cache, Rnew)
+    # ∇fₘ = [-γ*grad_cache; grad_cache]
+    bpd .= -Dfx' * (rcent ./ fx)
     bpd .+= -rdual
     # bunchkaufman!(Symmetric(Hpd))
     dx .= Hpd \ bpd
@@ -143,7 +161,7 @@ end
 
 
 # Backtracking line search
-function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
+function take_step!(ns::NewtonSolver{T}; α=0.01, β=0.5) where {T}
     x, λ = ns.x, ns.λ
     dx, dλ = ns.dx, ns.dλ
     x⁺, λ⁺ = ns.cache.x⁺, ns.cache.λ⁺
@@ -162,12 +180,12 @@ function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
     iter = 0
     #TODO: caching efficiency
     # x in particular
-    while f_x⁺_geq_0(ns, x⁺) || residual(ns, x⁺, λ⁺) > (1 - α * s) * residual_current
+    while ineq_constraint_violated(ns, x⁺) || residual(ns, x⁺, λ⁺) > (1 - α * s) * residual_current
         s *= β
         @. x⁺ = x + s*dx
         @. λ⁺ = λ + s*dλ
         iter += 1
-        iter > 10 && (Main.x[] = smax; error("Maximum iterations hit in line search"))
+        iter > 20 && (Main.x[] = x⁺; error("Maximum iterations hit in line search"))
     end
 
     # Update variables
@@ -177,8 +195,8 @@ function take_step!(ns::NewtonSolver{T}; α=0.05, β=0.5) where {T}
     return nothing
 end
 
-@inline function f_x⁺_geq_0(ns, x⁺)
-    return any(xi -> -xi ≥ 0, x⁺) || ns.cfmm.ϕ(ns.cfmm.R) - ns.cfmm.ϕ(ns.cfmm.R + ns.cfmm.γ * x⁺[1:n_coins(ns)] - x⁺[n_coins(ns)+1:end]) ≥ 0
+@inline function ineq_constraint_violated(ns, x⁺)
+    return any(xi -> xi < 0, x⁺) || ns.cfmm.ϕ(ns.cfmm.R) - ns.cfmm.ϕ(ns.cfmm.R + ns.cfmm.γ * x⁺[1:n_coins(ns)] - x⁺[n_coins(ns)+1:end]) ≥ 0
 end
     
 
@@ -226,7 +244,7 @@ function solve!(ns::NewtonSolver; max_iters=100, verbose=false)
                 norm(ns.rdual),
                 norm(ns.rcent),
                 ns.η̂,
-                dot(ns.ν, arbed[1:ni]),
+                -dot(ns.ν, arbed[1:ni]),
                 (time_ns() - solve_time_start) / 1e9
             ))
         end
