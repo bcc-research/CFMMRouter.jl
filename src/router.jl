@@ -1,6 +1,6 @@
 export Router, route!
+export netflows!, netflows, update_reserves!
 
-# This is unfortunately complicated; is there a better way
 struct Router{T, V, VT, O <: Objective}
     cfmms::Vector{CFMM}
     objective::O
@@ -37,10 +37,10 @@ function find_arb!(r::Router, v)
     end
 end
 
-function route!(r::R) where {R <: Router}
+function route!(r::R; verbose=false) where {R <: Router}
     # Optimizer set up
     optimizer = L_BFGS_B(length(r.v), 17)
-    v_0 = 2*ones(length(r.v)) # We should use the marginal price here
+    v_0 = 2*ones(length(r.v)) # We should use the initial marginal price here
 
     bounds = zeros(3, length(r.v))
     bounds[1, :] .= 2
@@ -73,8 +73,32 @@ function route!(r::R) where {R <: Router}
 
     end
 
-    _, v = optimizer(fn, g!, v_0, bounds, m=5, factr=1e7, pgtol=1e-5, iprint=1, maxfun=15000, maxiter=15000)
+    _, v = optimizer(fn, g!, v_0, bounds, m=5, factr=1e1, pgtol=1e-5, iprint=verbose ? 1 : -1, maxfun=15000, maxiter=15000)
+    r.v .= v
     find_arb!(r, v)
+end
 
-    return v
+# ----- Convenience functions
+function netflows!(ψ, r::Router)
+    fill!(ψ, 0)
+
+    for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+        ψ[c.Ai] += Λ - Δ
+    end
+
+    return nothing
+end
+
+function netflows(r::Router)
+    ψ = zero(v)
+    netflows!(ψ, r)
+    return ψ
+end
+
+function update_reserves!(r::Router)
+    for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+        c.R .+= Δ - Λ
+    end
+
+    return nothing
 end
