@@ -80,10 +80,10 @@ function route!(r::R) where {R <: Router}
         acc = 0.0
 
         for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
-            acc += @views dot(Δ, v[c.Ai]) - dot(Λ, v[c.Ai])
+            acc += @views dot(Λ, v[c.Ai]) - dot(Δ, v[c.Ai])
         end
 
-        return -f(r.objective, v) - acc
+        return f(r.objective, v) + acc
     end
 
     function g!(G, v)
@@ -92,10 +92,10 @@ function route!(r::R) where {R <: Router}
         find_arb!(r, v)
 
         for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
-            @views G[c.Ai] .+= Δ - Λ
+            @views G[c.Ai] .+= Λ - Δ 
         end
 
-        return -grad!(zero(v), r.objective, v) - G
+        return -grad!(zero(v), r.objective, v) + G
     end
 
     _, v = optimizer(fn, g!, v_0, bounds, m=5, factr=1e7, pgtol=1e-5, iprint=1, maxfun=15000, maxiter=15000)

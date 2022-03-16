@@ -9,8 +9,6 @@ grad!(g, ::Objective, v) = error("unimplemented")
 
 struct LinearNonnegative{T} <: Objective where {T}
     c::Vector{T}
-
-    lower::Vector{T}
 end
 
 function LinearNonnegative(c)
@@ -19,7 +17,6 @@ function LinearNonnegative(c)
 
     return LinearNonnegative{T}(
         c,
-        zero(c)
     )
 end
 
@@ -37,5 +34,5 @@ function grad!(g, obj::LinearNonnegative{T}, v) where {T}
     return g .= convert(T, Inf)
 end
 
-@inline lower_limit(o::LinearNonnegative{T}) where {T} = o.c
+@inline lower_limit(o::LinearNonnegative{T}) where {T} = o.c .+ 1e-8
 @inline upper_limit(o::LinearNonnegative{T}) where {T} = convert(T, Inf) .+ zero(o.c)
