@@ -21,17 +21,19 @@ function LinearNonnegative(c)
 end
 
 function f(obj::LinearNonnegative{T}, v) where {T}
-    if all(0 .<= v) && all(v .<= obj.c)
+    if all(obj.c .<= v)
         return zero(T)
     end
     return convert(T, Inf)
 end
 
 function grad!(g, obj::LinearNonnegative{T}, v) where {T}
-    if all(0 .<= v) && all(v .<= obj.c)
+    if all(obj.c .<= v)
         g .= zero(T)
+    else
+        g .= convert(T, Inf)
     end
-    return g .= convert(T, Inf)
+    return nothing
 end
 
 @inline lower_limit(o::LinearNonnegative{T}) where {T} = o.c .+ 1e-8
