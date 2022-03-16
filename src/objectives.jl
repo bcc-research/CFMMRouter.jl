@@ -37,5 +37,5 @@ function grad!(g, obj::LinearNonnegative{T}, v) where {T}
     return g .= convert(T, Inf)
 end
 
-@inline lower_limit(o::LinearNonnegative{T}) where {T} = o.lower
-@inline upper_limit(o::LinearNonnegative{T}) where {T} = o.c
+@inline lower_limit(o::LinearNonnegative{T}) where {T} = o.c
+@inline upper_limit(o::LinearNonnegative{T}) where {T} = convert(T, Inf) .+ zero(o.c)

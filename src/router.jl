@@ -83,8 +83,6 @@ function route!(r::R) where {R <: Router}
             acc += @views dot(Δ, v[c.Ai]) - dot(Λ, v[c.Ai])
         end
 
-        @show v
-
         return -f(r.objective, v) - acc
     end
 
@@ -94,7 +92,6 @@ function route!(r::R) where {R <: Router}
         find_arb!(r, v)
 
         for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
-            @show Δ, Λ
             @views G[c.Ai] .+= Δ - Λ
         end
 
