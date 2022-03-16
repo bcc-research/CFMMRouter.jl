@@ -72,4 +72,14 @@ end
         end
     end
 
+    @testset "simple ones" begin
+        equal_pool = ProductTwoCoin([100, 100], 1, [1, 2])
+        unequal_small_pool = ProductTwoCoin([1, 2], 1, [1, 2])
+
+        router = Router(
+            [equal_pool, unequal_small_pool],
+            LinearNonnegative(ones(2)),
+            2,
+        )
+    end
 end

@@ -14,7 +14,7 @@ struct LinearNonnegative{T} <: Objective where {T}
 end
 
 function LinearNonnegative(c)
-    c .> 0 && throw(ArgumentError("all elements must be strictly positive"))
+    all(c .> 0) || throw(ArgumentError("all elements must be strictly positive"))
     T = eltype(c)
 
     return LinearNonnegative{T}(
