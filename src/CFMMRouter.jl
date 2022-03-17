@@ -1,7 +1,7 @@
 module CFMMRouter
 
 using LinearAlgebra, SparseArrays, StaticArrays
-using Optim
+using LBFGSB
 using Printf
 
 include("utils.jl")

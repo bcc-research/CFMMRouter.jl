@@ -1,6 +1,6 @@
 export Router, route!
+export netflows!, netflows, update_reserves!
 
-# This is unfortunately complicated; is there a better way
 struct Router{T, V, VT, O <: Objective}
     cfmms::Vector{CFMM}
     objective::O
@@ -9,7 +9,8 @@ struct Router{T, V, VT, O <: Objective}
     v::V
 end
 
-function Router(T::Type, objective::O, cfmms::Vector{CFMM}, n_tokens) where {O <: Objective}
+function Router(objective::O, cfmms::Vector{C}, n_tokens) where {T, O <: Objective, C <: CFMM{T}}
+    V = Vector{T}
     VT = Vector{AbstractVector{T}}
     Δs = VT()
     Λs = VT()
@@ -28,37 +29,83 @@ function Router(T::Type, objective::O, cfmms::Vector{CFMM}, n_tokens) where {O <
     )
 end
 
-Router(T, objective, n_tokens) = Router(T, objective, Vector{CFMM}(), n_tokens)
-Router(objective, n_tokens) = Router(Float64, objective, n_tokens)
+Router(objective, n_tokens) = Router(objective, Vector{CFMM{Float64}}(), n_tokens)
 
-function route!(r::R) where {R <: Router}
-    function fg!(func, g, v)
-        # Update all trade parameters given prices v
-        for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.c)
-            find_arb!(Δ, Λ, c, v)
+function find_arb!(r::Router, v)
+    for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+        find_arb!(Δ, Λ, c, v[c.Ai])
+    end
+end
+
+function route!(r::R; verbose=false) where {R <: Router}
+    # Optimizer set up
+    optimizer = L_BFGS_B(length(r.v), 17)
+    r.v .= 2*ones(length(r.v)) # We should use the initial marginal price here
+
+    bounds = zeros(3, length(r.v))
+    bounds[1, :] .= 2
+    bounds[2, :] .= lower_limit(r.objective)
+    bounds[3, :] .= upper_limit(r.objective)
+
+    # Objective function
+    function fn(v)
+        if !all(v .== r.v)
+            find_arb!(r, v)
+            r.v .= v
         end
 
-        # Return gradient, if needed
-        if g !== nothing
-            g .= 0
+        acc = 0.0
 
-            for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.c)
-                @views G[c.Ai] .+= Δ - Λ
-            end
-
-            return -f(r.objective, v) + dot(v, G)
+        for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+            acc += @views dot(Λ, v[c.Ai]) - dot(Δ, v[c.Ai])
         end
-        # Otherwise just return the objective
-        if func !== nothing
-            acc = 0.0
 
-            for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.c)
-                acc += @views dot(v[c.Ai], Δ) - dot(v[c.Ai], Λ)
-            end
-
-            return acc - f(r.objective, v)
-        end
+        return f(r.objective, v) + acc
     end
 
-    return optimize(Optim.only_fg!(fg!), lower_limit(r.objective), upper_limit(r.objective), v, LBFGS())
+    # Derivative of objective function
+    function g!(G, v)
+        G .= 0
+
+        if !all(v .== r.v)
+            find_arb!(r, v)
+            r.v .= v
+        end
+        grad!(G, r.objective, v)
+
+        for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+            @views G[c.Ai] .+= Λ - Δ 
+        end
+
+    end
+
+    find_arb!(r, r.v)
+    _, v = optimizer(fn, g!, r.v, bounds, m=5, factr=1e1, pgtol=1e-5, iprint=verbose ? 1 : -1, maxfun=15000, maxiter=15000)
+    r.v .= v
+    find_arb!(r, v)
+end
+
+# ----- Convenience functions
+function netflows!(ψ, r::Router)
+    fill!(ψ, 0)
+
+    for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+        ψ[c.Ai] += Λ - Δ
+    end
+
+    return nothing
+end
+
+function netflows(r::Router)
+    ψ = zero(v)
+    netflows!(ψ, r)
+    return ψ
+end
+
+function update_reserves!(r::Router)
+    for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
+        c.R .+= Δ - Λ
+    end
+
+    return nothing
 end

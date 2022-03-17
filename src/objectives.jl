@@ -9,33 +9,32 @@ grad!(g, ::Objective, v) = error("unimplemented")
 
 struct LinearNonnegative{T} <: Objective where {T}
     c::Vector{T}
-
-    lower::Vector{T}
 end
 
 function LinearNonnegative(c)
-    c .> 0 && throw(ArgumentError("all elements must be strictly positive"))
+    all(c .> 0) || throw(ArgumentError("all elements must be strictly positive"))
     T = eltype(c)
 
     return LinearNonnegative{T}(
         c,
-        zero(c)
     )
 end
 
 function f(obj::LinearNonnegative{T}, v) where {T}
-    if all(0 .<= v) && all(v .<= obj.c)
+    if all(obj.c .<= v)
         return zero(T)
     end
     return convert(T, Inf)
 end
 
 function grad!(g, obj::LinearNonnegative{T}, v) where {T}
-    if all(0 .<= v) && all(v .<= obj.c)
+    if all(obj.c .<= v)
         g .= zero(T)
+    else
+        g .= convert(T, Inf)
     end
-    return g .= convert(T, Inf)
+    return nothing
 end
 
-@inline lower_limit(o::LinearNonnegative{T}) where {T} = o.lower
-@inline upper_limit(o::LinearNonnegative{T}) where {T} = o.c
+@inline lower_limit(o::LinearNonnegative{T}) where {T} = o.c .+ 1e-8
+@inline upper_limit(o::LinearNonnegative{T}) where {T} = convert(T, Inf) .+ zero(o.c)

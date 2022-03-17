@@ -10,10 +10,15 @@ abstract type CFMM{T} end
     Ai::Vector{Int}                 # idx vector: jth coin in CFMM is Ai[j]
 end
 
+# @def add_two_coin_fields begin
+#     R::MVector{2,T}
+#     γ::T
+#     Ai::MVector{2,UInt}
+# end
 @def add_two_coin_fields begin
-    R::MVector{2,T}
+    R::Vector{T}
     γ::T
-    Ai::MVector{2,UInt}
+    Ai::Vector{UInt}
 end
 
 Base.length(c::CFMM) = length(c.Ai)
@@ -109,7 +114,7 @@ end
 
 # Solves the maximum arbitrage problem for the two-coin constant product case.
 # Assumes that v > 0 and γ > 0.
-function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT <: MVector{2, T}}
+function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT <: AbstractVector{T}}
     R, γ = cfmm.R, cfmm.γ
     k = R[1]*R[2]
 
@@ -155,7 +160,7 @@ end
 
 # Solves the maximum arbitrage problem for the two-coin geometric mean case.
 # Assumes that v > 0 and w > 0.
-function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {T, VT <: MVector{2, T}}
+function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {T, VT <: AbstractVector{T}}
     R, γ, w = cfmm.R, cfmm.γ, cfmm.w
 
     η = w[1]/w[2]

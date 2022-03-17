@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LBFGSB = "5be7bae1-8223-5378-bac3-9e7378a2f6e6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -13,6 +14,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 Documenter = "0.27"
+LBFGSB = "0.4"
 Optim = "1"
 StaticArrays = "1"
 julia = "1.7"
