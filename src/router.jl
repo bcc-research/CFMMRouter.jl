@@ -32,8 +32,8 @@ end
 Router(objective, n_tokens) = Router(objective, Vector{CFMM{Float64}}(), n_tokens)
 
 function find_arb!(r::Router, v)
-    for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
-        find_arb!(Δ, Λ, c, v[c.Ai])
+    Threads.@threads for i in 1:length(r.Δs)
+        find_arb!(r.Δs[i], r.Λs[i], r.cfmms[i], v[r.cfmms[i].Ai])
     end
 end
 
