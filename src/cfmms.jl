@@ -3,7 +3,6 @@ export find_arb!
 
 abstract type CFMM{T} end
 
-# Credit: Chris Rackauckas
 @def add_generic_fields begin
     R::Vector{T}
     γ::T
@@ -23,14 +22,19 @@ end
 
 Base.length(c::CFMM) = length(c.Ai)
 
-# solves min νᵀAᵢ(Λᵢ - Δᵢ) s.t. Λᵢ, Δᵢ ≥ 0 and ϕ(Rᵢ + γΔᵢ - Λᵢ) ≥ ϕ(Rᵢ)
-# overwrites Δ and Λ
-# returns false if no arb exists (iszero(Δ) && iszero(Λ)), true ow
-# THIS DEF IS JUST FOR THE DOCTSTRING
+# This def is for the docstring
 """
-    find_arb!(Δ, Λ, cfmm, ν)
+    find_arb!(Δ, Λ, cfmm, v)
 
-TODO
+Solves the arbitrage problem for `cfmm` given price vector `v`,
+```math
+\begin{array}{ll}
+\text{minimize} & \nu^T(\Lambda - \Delta) \\
+\text{subject to} & \varphi(R + \gamma\Delta - \Lambda) = \varphi(R) \\
+& \Delta, \Lambda \geq 0.
+\end{array}
+Overwrites the variables `Δ` and `Λ`.
+```
 """
 function find_arb! end
 
@@ -46,7 +50,7 @@ function ∇ϕ(::CFMM) end
 struct Sum{T} <: CFMM{T}
     @add_generic_fields
 end
-function find_arb!(Δ::VT, Λ::VT, cfmm::Sum{T}, ν::VT) where {T, VT <: Vector{T}}
+function find_arb!(Δ::VT, Λ::VT, cfmm::Sum{T}, v::VT) where {T, VT <: Vector{T}}
     error("unimplemented")
     #TODO:
 end
@@ -87,6 +91,15 @@ function two_coin_check_cast(R, γ, idx)
     return γ_T, idx_uint, T
 end
 
+"""
+    ProductTwoCoin(R, γ, idx)
+
+Creates a two coin product CFMM with coins `idx[1]` and `idx[2]`, reserves `R`, and fee `γ`.
+Specifically, the invariant is
+```math
+\varphi(R) = R_1R_2.
+```
+"""
 function ProductTwoCoin(R, γ, idx)
     γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
 
@@ -126,6 +139,16 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT 
     return nothing
 end
 
+"""
+    GeometricMeanTwoCoin(R, γ, idx, w)
+
+Creates a two coin geometric mean CFMM with coins `idx[1]` and `idx[2]`, 
+reserves `R`, fee `γ`, and weights `w` such that `w[1] + w[1] == 1.0`.
+Specifically, the invariant is
+```math
+\varphi(R) = R_1^{w_1}R_2^{w_2}.
+```
+"""
 struct GeometricMeanTwoCoin{T} <: CFMM{T}
     @add_two_coin_fields
     w::SVector{2, T}
