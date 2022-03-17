@@ -85,11 +85,12 @@ function check_primal_feasibility(r::Router)
     for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
         @test all(Δ .>= -TOL)
         @test all(Λ .>= -TOL)
-        @test CFMMRouter.ϕ(c, R=c.R + c.γ*Δ - Λ) >= CFMMRouter.ϕ(c) - sqrt(eps())
+        @test CFMMRouter.ϕ(c, R=c.R + c.γ*Δ - Λ) >= CFMMRouter.ϕ(c) - TOL
 
         all_flows[c.Ai] .+= Λ - Δ
     end
 
+    @show all_flows
     @test all(all_flows .>= -TOL)
 end
 

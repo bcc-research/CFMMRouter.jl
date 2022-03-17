@@ -40,7 +40,7 @@ end
 function route!(r::R; verbose=false) where {R <: Router}
     # Optimizer set up
     optimizer = L_BFGS_B(length(r.v), 17)
-    v_0 = 2*ones(length(r.v)) # We should use the initial marginal price here
+    r.v .= 2*ones(length(r.v)) # We should use the initial marginal price here
 
     bounds = zeros(3, length(r.v))
     bounds[1, :] .= 2
@@ -49,7 +49,10 @@ function route!(r::R; verbose=false) where {R <: Router}
 
     # Objective function
     function fn(v)
-        find_arb!(r, v)
+        if !all(v .== r.v)
+            find_arb!(r, v)
+            r.v .= v
+        end
 
         acc = 0.0
 
@@ -64,7 +67,10 @@ function route!(r::R; verbose=false) where {R <: Router}
     function g!(G, v)
         G .= 0
 
-        find_arb!(r, v)
+        if !all(v .== r.v)
+            find_arb!(r, v)
+            r.v .= v
+        end
         grad!(G, r.objective, v)
 
         for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
@@ -73,7 +79,8 @@ function route!(r::R; verbose=false) where {R <: Router}
 
     end
 
-    _, v = optimizer(fn, g!, v_0, bounds, m=5, factr=1e1, pgtol=1e-5, iprint=verbose ? 1 : -1, maxfun=15000, maxiter=15000)
+    find_arb!(r, r.v)
+    _, v = optimizer(fn, g!, r.v, bounds, m=5, factr=1e1, pgtol=1e-5, iprint=verbose ? 1 : -1, maxfun=15000, maxiter=15000)
     r.v .= v
     find_arb!(r, v)
 end
