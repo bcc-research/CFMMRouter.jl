@@ -9,6 +9,12 @@ struct Router{T, V, VT, O <: Objective}
     v::V
 end
 
+"""
+    Router(objective, cfmms, n_tokens)
+
+Constructs a router that finds a trade (router.Δs, router.Λs) through `cfmms` 
+which maximizes `objective`. The number of tokens `n_tokens` must be specified.
+"""
 function Router(objective::O, cfmms::Vector{C}, n_tokens) where {T, O <: Objective, C <: CFMM{T}}
     V = Vector{T}
     VT = Vector{AbstractVector{T}}
@@ -37,6 +43,19 @@ function find_arb!(r::Router, v)
     end
 end
 
+"""
+    find_arb!(Δ, Λ, cfmm, v)
+
+Solves the arbitrage problem for `cfmm` given price vector `v`,
+```math
+\begin{array}{ll}
+\text{minimize} & \nu^T(\Lambda - \Delta) \\
+\text{subject to} & \varphi(R + \gamma\Delta - \Lambda) = \varphi(R) \\
+& \Delta, \Lambda \geq 0.
+\end{array}
+Overwrites the variables `Δ` and `Λ`.
+```
+"""
 function route!(r::R; verbose=false) where {R <: Router}
     # Optimizer set up
     optimizer = L_BFGS_B(length(r.v), 17)

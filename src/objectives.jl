@@ -11,6 +11,15 @@ struct LinearNonnegative{T} <: Objective where {T}
     c::Vector{T}
 end
 
+"""
+    LinearNonnegative(c)
+
+Linear objective for the routing problem,
+```math
+    c^T\Phi,
+```
+where `c` is a positive price vector.
+"""
 function LinearNonnegative(c)
     all(c .> 0) || throw(ArgumentError("all elements must be strictly positive"))
     T = eltype(c)
