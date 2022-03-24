@@ -10,7 +10,7 @@ $$
 $$
 
 ## Partial Dualization
-We observe that only the first constraint couples this problem; all other 
+It's easy to see that only the first constraint couples this problem; all other 
 constraints are specific to a particular CFMM. Thus, if we get rid of this
 constraint, the CFMM subproblems can be solved separately. 
 Motivated by this insight, we form the Lagrangian
