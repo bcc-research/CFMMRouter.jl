@@ -5,8 +5,17 @@ CurrentModule = CFMMRouter
 # CFMM Router
 Convex optimization for fun and profit.
 
+### Documentation Contents:
 ```@contents
+Pages = ["index.md", "method.md"]
+Depth = 1
 ```
+##### Examples:
+```@contents
+Pages = ["examples/arbitrage.md"]
+Depth = 1
+```
+
 
 ## Overview
 
@@ -26,7 +35,13 @@ A routing problem is specified by the list of CFMMs
 and the concave utility function $U(\Psi)$.
 We solve for the tendered baskets $\Delta_i \in \mathbf{R}^{n_i}_+$, the received baskets $\Lambda_i \in \mathbf{R}^{n_i}_+$, and the net trade $\Psi \in \mathbf{R}^n$.
 
-Once this solution is obtained, a list of trades can be constructed with
+The routing problem includes a large number of trades we'd like to make, including
+- Liquidating a basket of tokens
+- Trading token A for token B
+- Finding arbitrage opportunities
+- And more...
+
+Once a solution is obtained, a list of trades can be constructed with
 a small amount of additional effort. 
 We can generate this list by solving a network flow problem with lossy edges,
 but we'll leave the details for a future post.
