@@ -38,7 +38,7 @@ examples_nav = fix_suffix.(joinpath.("examples", examples))
 makedocs(;
     modules=[CFMMRouter],
     authors="Guillermo Angeris, Theo Diamandis",
-    repo=".",#"https://github.com/angeris/CFMMRouter.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/angeris/CFMMRouter.jl/blob/{commit}{path}#L{line}",
     sitename="CFMMRouter.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",

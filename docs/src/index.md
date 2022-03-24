@@ -55,5 +55,5 @@ Our approach is a common one in large scale optimization: we decompose the probl
 ```
 Therefore, if we can eliminate this constraint, the subproblems can be solved independently. Intuitively, our approach is to relax this constraint to be a penalty in the objective, where there is some cost of violation. If we fix these costs at a given round, the CFMM subproblems can be solved independently. We then use these subproblem solutions to update the cost of violation and iterate this process. The algorithmic details are explained in [Method](@ref).
 
-### References
+## References
 [1] G Angeris, T Chitra, A Evans, and S Boyd. [Optimal Routing for Constant Function Market Makers](https://web.stanford.edu/~guillean/papers/cfmm-routing.pdf)
