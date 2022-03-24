@@ -4,5 +4,5 @@
 ```
 
 ```@autodocs
-Modules = [Chordal]
+Modules = [CFMMRouter]
 ```

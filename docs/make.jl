@@ -4,7 +4,7 @@ using Literate
 
 # For Plots.jl
 # https://discourse.julialang.org/t/plotting-errors-when-building-documentation-using-plots-jl-and-documenter-jl/67849
-ENV["GKSwstype"]="100"
+# ENV["GKSwstype"]="100"
 
 EXCLUDED_EXAMPLES = []
 
@@ -37,8 +37,8 @@ examples_nav = fix_suffix.(joinpath.("examples", examples))
 
 makedocs(;
     modules=[CFMMRouter],
-    authors=["Guillermo Angeris", "Theo Diamandis"],
-    repo="https://github.com/angeris/CFMMRouter.jl/blob/{commit}{path}#L{line}",
+    authors="Guillermo Angeris, Theo Diamandis",
+    repo=".",#"https://github.com/angeris/CFMMRouter.jl/blob/{commit}{path}#L{line}",
     sitename="CFMMRouter.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -47,6 +47,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Method" => "method.md",
         "Examples" => examples_nav,
         "API Reference" => "api.md"
     ],
