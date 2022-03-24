@@ -116,7 +116,7 @@ function netflows!(ψ, r::Router)
 end
 
 function netflows(r::Router)
-    ψ = zero(v)
+    ψ = zero(r.v)
     netflows!(ψ, r)
     return ψ
 end
