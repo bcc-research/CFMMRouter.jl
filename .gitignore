@@ -5,3 +5,6 @@
 Manifest.toml
 dev/
 devtest/Project.toml
+/docs/build/
+/docs/src/examples/*.md
+.vscode/
