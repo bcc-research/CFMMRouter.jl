@@ -1,5 +1,6 @@
 module CFMMRouter
 
+using Documenter
 using LinearAlgebra, SparseArrays, StaticArrays
 using LBFGSB
 using Printf
