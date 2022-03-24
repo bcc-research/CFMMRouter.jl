@@ -23,7 +23,7 @@ end
 Base.length(c::CFMM) = length(c.Ai)
 
 # This def is for the docstring
-"""
+@doc raw"""
     find_arb!(Δ, Λ, cfmm, v)
 
 Solves the arbitrage problem for `cfmm` given price vector `v`,
@@ -91,7 +91,7 @@ function two_coin_check_cast(R, γ, idx)
     return γ_T, idx_uint, T
 end
 
-"""
+@doc raw"""
     ProductTwoCoin(R, γ, idx)
 
 Creates a two coin product CFMM with coins `idx[1]` and `idx[2]`, reserves `R`, and fee `γ`.
@@ -139,7 +139,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT 
     return nothing
 end
 
-"""
+@doc raw"""
     GeometricMeanTwoCoin(R, γ, idx, w)
 
 Creates a two coin geometric mean CFMM with coins `idx[1]` and `idx[2]`, 

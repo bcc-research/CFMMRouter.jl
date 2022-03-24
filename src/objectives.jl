@@ -11,7 +11,7 @@ struct LinearNonnegative{T} <: Objective where {T}
     c::Vector{T}
 end
 
-"""
+@doc raw"""
     LinearNonnegative(c)
 
 Linear objective for the routing problem,

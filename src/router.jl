@@ -43,18 +43,19 @@ function find_arb!(r::Router, v)
     end
 end
 
-"""
-    find_arb!(Δ, Λ, cfmm, v)
+@doc raw"""
+    route!(r::Router)
 
-Solves the arbitrage problem for `cfmm` given price vector `v`,
+Solves the routing problem,
 ```math
 \begin{array}{ll}
-\text{minimize} & \nu^T(\Lambda - \Delta) \\
-\text{subject to} & \varphi(R + \gamma\Delta - \Lambda) = \varphi(R) \\
-& \Delta, \Lambda \geq 0.
+\text{maximize}     & U(\Psi) \\
+\text{subject to}   & \Psi = \sum_{i=1}^m A_i(\Lambda_i - \Delta_i) \\
+& \phi_i(R_i + \gamma_i\Delta_i - \Lambda_i) \geq \phi_i(R_i), \quad i = 1, \dots, m \\
+&\Delta_i \geq 0, \quad \Lambda_i \geq 0, \quad i = 1, \dots, m.
 \end{array}
-Overwrites the variables `Δ` and `Λ`.
 ```
+Overwrites `r.Δs` and `r.Λs`.
 """
 function route!(r::R; verbose=false) where {R <: Router}
     # Optimizer set up
