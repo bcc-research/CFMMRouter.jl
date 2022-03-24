@@ -15,7 +15,7 @@ fix_math_md(content) = replace(content, r"\$\$(.*?)\$\$"s => s"```math\1```")
 fix_suffix(filename) = replace(filename, ".jl" => ".md")
 function postprocess(content)
       """
-      The source files for all examples can be found in [/examples](https://github.com/angeris/CFMMRouter.jl/tree/main/examples).
+      The source files for all examples can be found in [/examples](https://github.com/bcc-research/CFMMRouter.jl/tree/main/examples).
       """ * content
 end
 
@@ -38,11 +38,11 @@ examples_nav = fix_suffix.(joinpath.("examples", examples))
 makedocs(;
     modules=[CFMMRouter],
     authors="Guillermo Angeris, Theo Diamandis",
-    repo="https://github.com/angeris/CFMMRouter.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/bcc-research/CFMMRouter.jl/blob/{commit}{path}#L{line}",
     sitename="CFMMRouter.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://tjdiamandis.github.io/CFMMRouter.jl",
+        canonical="https://bcc-research.github.io/CFMMRouter.jl",
         assets=String[],
     ),
     pages=[
@@ -54,6 +54,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/angeris/CFMMRouter.jl",
+    repo="github.com/bcc-research/CFMMRouter.jl",
     devbranch = "main"
 )

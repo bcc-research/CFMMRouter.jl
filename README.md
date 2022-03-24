@@ -1,8 +1,8 @@
 # CFMMRouter
 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://tjdiamandis.github.io/CFMMRouter.jl/dev)
-[![Build Status](https://github.com/angeris/CFMMRouter.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/angeris/CFMMRouter.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/angeris/CFMMRouter.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/angeris/CFMMRouter.jl)
+[![Build Status](https://github.com/bcc-research/CFMMRouter.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/bcc-research/CFMMRouter.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/bcc-research/CFMMRouter.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/bcc-research/CFMMRouter.jl)
 
 ## Overview
 This package contains a fast solver for the CFMM Routing problem, as defined
