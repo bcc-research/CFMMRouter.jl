@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Liquidating a basket of tokens · CFMMRouter.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://bcc-research.github.io/CFMMRouter.jl/examples/liquidate/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">CFMMRouter.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../method/">Solution method</a></li><li><a class="tocitem" href="../../objective/">Specifying objectives</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../arbitrage/">Arbitrage</a></li><li class="is-active"><a class="tocitem" href>Liquidating a basket of tokens</a><ul class="internal"><li><a class="tocitem" href="#Special-Case:-Trade-Token-1-Token-2"><span>Special Case: Trade Token 1 -&gt; Token 2</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Liquidating a basket of tokens</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Liquidating a basket of tokens</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/bcc-research/CFMMRouter.jl/blob/main/examples/liquidate.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><p>The source files for all examples can be found in <a href="https://github.com/bcc-research/CFMMRouter.jl/tree/main/examples">/examples</a>.</p><h1 id="Liquidating-a-basket-of-tokens"><a class="docs-heading-anchor" href="#Liquidating-a-basket-of-tokens">Liquidating a basket of tokens</a><a id="Liquidating-a-basket-of-tokens-1"></a><a class="docs-heading-anchor-permalink" href="#Liquidating-a-basket-of-tokens" title="Permalink"></a></h1><p>This example illustrates how to use CFMMRouter.jl to liquidate a basket of tokens.</p><pre><code class="language-julia hljs">using CFMMRouter
+using LinearAlgebra
+
+# Create CFMMs
+cfmms = [
+    ProductTwoCoin([1e3, 1e4], 0.997, [1, 2]),
+    ProductTwoCoin([1e3, 1e2], 0.997, [2, 3]),
+    ProductTwoCoin([1e3, 2e4], 0.997, [1, 3])
+]
+
+# We want to liquidate a basket of tokens 2 &amp; 3 into token 1
+Δin = [0, 1e1, 1e2]
+
+# Build a routing problem with liquidation objective
+router = Router(
+    BasketLiquidation(1, Δin),
+    cfmms,
+    maximum([maximum(cfmm.Ai) for cfmm in cfmms]),
+)
+
+# Optimize!
+route!(router)
+
+# Print results
+Ψ = round.(Int, netflows(router))
+print(&quot;Input Basket: $(round.(Int, Δin))&quot;)
+print(&quot;Net trade: $Ψ&quot;)
+print(&quot;Amount recieved: $(Ψ[1])&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Input Basket: [0, 10, 100]Net trade: [60, -10, -100]Amount recieved: 60</code></pre><p>We can also see the list of individual trades with each CFMM:</p><pre><code class="language-julia hljs"># Print individual trades
+for (i, (Δ, Λ)) in enumerate(zip(router.Δs, router.Λs))
+    tokens = router.cfmms[i].Ai
+    println(&quot;CFMM $i:&quot;)
+    println(&quot;\tTendered basket:&quot;)
+    for (ind, δ) in enumerate(Δ)
+        if δ &gt; eps()
+            print(&quot;\t  $(tokens[ind]): $(round(Int, δ)), &quot;)
+        end
+    end
+    println(&quot;\n\tRecieved basket:&quot;)
+    for (ind, λ) in enumerate(Λ)
+        if λ &gt; eps()
+            print(&quot;\t  $(tokens[ind]): $(round(Int, λ)), &quot;)
+        end
+    end
+    print(&quot;\n&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">CFMM 1:
+	Tendered basket:
+	  2: 766,
+	Recieved basket:
+	  1: 71,
+CFMM 2:
+	Tendered basket:
+	  3: 310,
+	Recieved basket:
+	  2: 756,
+CFMM 3:
+	Tendered basket:
+	  1: 11,
+	Recieved basket:
+	  3: 210,</code></pre><h2 id="Special-Case:-Trade-Token-1-Token-2"><a class="docs-heading-anchor" href="#Special-Case:-Trade-Token-1-Token-2">Special Case: Trade Token 1 -&gt; Token 2</a><a id="Special-Case:-Trade-Token-1-Token-2-1"></a><a class="docs-heading-anchor-permalink" href="#Special-Case:-Trade-Token-1-Token-2" title="Permalink"></a></h2><pre><code class="language-julia hljs">Δin = [1e1, 0.0, 0.0]
+
+# Build a routing problem with liquidation objective (output to token 2)
+router = Router(
+    BasketLiquidation(2, Δin),
+    cfmms,
+    maximum([maximum(cfmm.Ai) for cfmm in cfmms]),
+)
+
+# Optimize!
+route!(router)
+
+# Print results
+Ψ = round.(Int, netflows(router))
+print(&quot;Input Basket: $(round.(Int, Δin))&quot;)
+print(&quot;Net trade: $Ψ&quot;)
+print(&quot;Amount recieved: $(Ψ[1])&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Input Basket: [10, 0, 0]Net trade: [-10, 698, 0]Amount recieved: -10</code></pre><p>List of individual trades with each CFMM:</p><pre><code class="language-julia hljs"># Print individual trades
+for (i, (Δ, Λ)) in enumerate(zip(router.Δs, router.Λs))
+    tokens = router.cfmms[i].Ai
+    println(&quot;CFMM $i:&quot;)
+    println(&quot;\tTendered basket:&quot;)
+    for (ind, δ) in enumerate(Δ)
+        if δ &gt; eps()
+            print(&quot;\t  $(tokens[ind]): $(round(Int, δ)), &quot;)
+        end
+    end
+    println(&quot;\n\tRecieved basket:&quot;)
+    for (ind, λ) in enumerate(Λ)
+        if λ &gt; eps()
+            print(&quot;\t  $(tokens[ind]): $(round(Int, λ)), &quot;)
+        end
+    end
+    print(&quot;\n&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">CFMM 1:
+	Tendered basket:
+	  2: 72,
+	Recieved basket:
+	  1: 7,
+CFMM 2:
+	Tendered basket:
+	  3: 336,
+	Recieved basket:
+	  2: 770,
+CFMM 3:
+	Tendered basket:
+	  1: 17,
+	Recieved basket:
+	  3: 336,</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../arbitrage/">« Arbitrage</a><a class="docs-footer-nextpage" href="../../api/">API reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Thursday 31 March 2022 22:27">Thursday 31 March 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
