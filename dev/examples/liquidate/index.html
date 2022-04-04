@@ -24,9 +24,11 @@ route!(router)
 
 # Print results
 Ψ = round.(Int, netflows(router))
-print(&quot;Input Basket: $(round.(Int, Δin))&quot;)
-print(&quot;Net trade: $Ψ&quot;)
-print(&quot;Amount recieved: $(Ψ[1])&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Input Basket: [0, 10, 100]Net trade: [60, -10, -100]Amount recieved: 60</code></pre><p>We can also see the list of individual trades with each CFMM:</p><pre><code class="language-julia hljs"># Print individual trades
+println(&quot;Input Basket: $(round.(Int, Δin))&quot;)
+println(&quot;Net trade: $Ψ&quot;)
+println(&quot;Amount recieved: $(Ψ[1])&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Input Basket: [0, 10, 100]
+Net trade: [60, -10, -100]
+Amount recieved: 60</code></pre><p>We can also see the list of individual trades with each CFMM:</p><pre><code class="language-julia hljs"># Print individual trades
 for (i, (Δ, Λ)) in enumerate(zip(router.Δs, router.Λs))
     tokens = router.cfmms[i].Ai
     println(&quot;CFMM $i:&quot;)
@@ -71,9 +73,11 @@ route!(router)
 
 # Print results
 Ψ = round.(Int, netflows(router))
-print(&quot;Input Basket: $(round.(Int, Δin))&quot;)
-print(&quot;Net trade: $Ψ&quot;)
-print(&quot;Amount recieved: $(Ψ[1])&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Input Basket: [10, 0, 0]Net trade: [-10, 698, 0]Amount recieved: -10</code></pre><p>List of individual trades with each CFMM:</p><pre><code class="language-julia hljs"># Print individual trades
+println(&quot;Input Basket: $(round.(Int, Δin))&quot;)
+println(&quot;Net trade: $Ψ&quot;)
+println(&quot;Amount recieved: $(Ψ[1])&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Input Basket: [10, 0, 0]
+Net trade: [-10, 698, 0]
+Amount recieved: -10</code></pre><p>List of individual trades with each CFMM:</p><pre><code class="language-julia hljs"># Print individual trades
 for (i, (Δ, Λ)) in enumerate(zip(router.Δs, router.Λs))
     tokens = router.cfmms[i].Ai
     println(&quot;CFMM $i:&quot;)
@@ -104,4 +108,4 @@ CFMM 3:
 	Tendered basket:
 	  1: 17,
 	Recieved basket:
-	  3: 336,</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../arbitrage/">« Arbitrage</a><a class="docs-footer-nextpage" href="../../api/">API reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Monday 4 April 2022 18:36">Monday 4 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+	  3: 336,</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../arbitrage/">« Arbitrage</a><a class="docs-footer-nextpage" href="../../api/">API reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Monday 4 April 2022 19:34">Monday 4 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
