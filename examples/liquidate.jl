@@ -27,9 +27,9 @@ route!(router)
     
 ## Print results
 Ψ = round.(Int, netflows(router))
-print("Input Basket: $(round.(Int, Δin))")
-print("Net trade: $Ψ")
-print("Amount recieved: $(Ψ[1])")
+println("Input Basket: $(round.(Int, Δin))")
+println("Net trade: $Ψ")
+println("Amount recieved: $(Ψ[1])")
 
 #=
 We can also see the list of individual trades with each CFMM:
@@ -71,9 +71,9 @@ route!(router)
 
 ## Print results
 Ψ = round.(Int, netflows(router))
-print("Input Basket: $(round.(Int, Δin))")
-print("Net trade: $Ψ")
-print("Amount recieved: $(Ψ[1])")
+println("Input Basket: $(round.(Int, Δin))")
+println("Net trade: $Ψ")
+println("Amount recieved: $(Ψ[1])")
 
 #=
 List of individual trades with each CFMM:
