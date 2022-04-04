@@ -76,7 +76,7 @@ By evaluating the function $g(\nu)$, we get the gradient essentially for free.
 In the near future, we will support user-created CFMMs as well, which are specified by the trading function $\phi$, its gradient $\nabla \phi$, and its Hessian $\nabla^2\phi$. The gradient and Hessian may be specified exactly or by using automatic differentiation tools such as `ForwardDiff.jl` [^4].
 
 ## References
-[^1]: G. Angeris, T. Chitra, A. Evans, S. Boyd (2021). [Optimal routing for constant function market makers](https://web.stanford.edu/~guillean/papers/cfmm-routing.pdf).
-[^2]: G. Angeris, H. T. Kao, R. Chiang, C. Noyes, T. Chitra (2019). [An analysis of Uniswap markets](https://web.stanford.edu/~guillean/papers/uniswap_analysis.pdf).
+[^1]: G. Angeris, T. Chitra, A. Evans, S. Boyd (2021). [Optimal routing for constant function market makers](https://angeris.github.io/papers/cfmm-routing.pdf).
+[^2]: G. Angeris, H. T. Kao, R. Chiang, C. Noyes, T. Chitra (2019). [An analysis of Uniswap markets](https://angeris.github.io/papers/uniswap_analysis.pdf).
 [^3]: C. Zhu, H. R. Byrd, P. Lu, J. Nocedal (1997). [L-BFGS-B](http://users.iems.northwestern.edu/~nocedal/lbfgsb.html).
 [^4]: J. Revels, M. Lubin, T. Papamarkou (2016). [Forward-mode automatic differentiation in Julia](https://arxiv.org/abs/1607.07892).

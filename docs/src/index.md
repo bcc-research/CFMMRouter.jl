@@ -28,7 +28,9 @@ In general, decentralized exchanges, such as Uniswap, Balancer, Curve, among man
 While there may be many assets in a network, in practice, individual CFMMs trade only a small number of these assets. This fact leads to several interesting problems when trading.
 
 In one simple scenario, a trader might want to trade some amount $x$ of token A for token B. It is then reasonable to ask: what is the largest amount of token B that can be received given this amount $x$ of token A? If the trader is only allowed to trade with a single market of their choosing, the solution to this problem is easy—the trader simply checks how much of token B, given quantity $x$ of token A, they expect to receive from each market that trades tokens A and B,
-and picks the market that gives the maximum amount of token B. When they are allowed to trade against any number of markets, as is usually the case in decentralized finance, the problem becomes substantially more complicated. In this case, an optimal solution (one which gives the largest amount of token B out, given $x$ of token A) could involve splitting an order across many markets, sequentially trading across a number of markets (some of which need not trade tokens A and B at all) among any number of other possible strategies.
+and picks the market that gives the maximum amount of token B. When they are allowed to trade against any number of markets, as is usually the case in decentralized finance, the problem becomes substantially more complicated. 
+In this case, an optimal solution could involve not only splitting an order across numerous individual markets trading tokens A and B, but also including sequential trades across any combination of markets which include other tokens.
+Finding the best way to execute this order is known as the [*optimal routing problem*](https://angeris.github.io/papers/cfmm-routing.pdf).
 
 The main idea behind this package is to note that the problem of optimal routing can often be phrased as a [convex optimization problem](https://www.stanford.edu/~boyd/cvxbook/). Problems of this form can generally be quickly and robustly solved in practice, even for relatively large problem instances. This package also exploits some additional structure present in the optimal routing problem to further speed up problem solving. More details about this approach can be found in the sections below.
 
@@ -76,4 +78,4 @@ To solve the optimal routing problem presented here, this package uses a common 
 Therefore, if we can eliminate this constraint, the subproblems can be solved in a fully parallelizable way. Intuitively, our approach is to relax this constraint to be a penalty in the objective, where there is some cost of violation. If we fix these costs at a given round, the CFMM subproblems can be solved independently. We then use these subproblem solutions to update the cost of violation and iterate this process. The algorithmic details are explained in the [Solution method](@ref) section.
 
 ## References
-[^1]: G. Angeris, T. Chitra, A. Evans, and S. Boyd. [Optimal routing for constant function market makers](https://web.stanford.edu/~guillean/papers/cfmm-routing.pdf).
+[^1]: G. Angeris, T. Chitra, A. Evans, and S. Boyd. [Optimal routing for constant function market makers](https://angeris.github.io/papers/cfmm-routing.pdf).
