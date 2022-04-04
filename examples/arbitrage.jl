@@ -6,15 +6,16 @@ arbitrage problem
 using CFMMRouter
 using LinearAlgebra
 
-## Create two pools of the same tokens, no fees (γ=1)
+## Create three pools of the same tokens, no fees (γ=1)
 equal_pool = ProductTwoCoin([1e6, 1e6], 1, [1, 2])
 unequal_small_pool = ProductTwoCoin([1e3, 2e3], 1, [1, 2])
+weighted_pool = GeometricMeanTwoCoin([1e4, 2e4], [.4, .6], 1, [1, 2])
 
 ## Build a routing problem with price vector = [1.0, 1.0]
 prices = ones(2)
 router = Router(
     LinearNonnegative(prices),
-    [equal_pool, unequal_small_pool],
+    [equal_pool, unequal_small_pool, weighted_pool],
     2,
 )
 
