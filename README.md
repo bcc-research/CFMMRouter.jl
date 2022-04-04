@@ -15,7 +15,7 @@ For more information, check out the [documentation](https://tjdiamandis.github.i
 ## Quick Start
 First, add the package locally.
 ```julia 
-using Pkg; Pkg.add("https://github.com/bcc-research/CFMMRouter.jl.git")
+using Pkg; Pkg.add(url="https://github.com/bcc-research/CFMMRouter.jl")
 ```
 
 Make some swap pools.
@@ -25,12 +25,13 @@ using CFMMRouter
 
 equal_pool = ProductTwoCoin([1e6, 1e6], 1, [1, 2])
 unequal_small_pool = ProductTwoCoin([1e3, 2e3], 1, [1, 2])
+prices = ones(2)
 ```
 
 Build a Router & route.
 ```julia
 router = Router(
-    LinearNonnegative(ones(2)),
+    LinearNonnegative(prices),
     [equal_pool, unequal_small_pool],
     2,
 )
