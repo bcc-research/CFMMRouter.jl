@@ -32,7 +32,7 @@ function lower_limit end
 @doc raw"""
     upper_limit(obj)
 
-Componentwise lower bound on argument `v` for objective [`f`](@ref).  
+Componentwise upper bound on argument `v` for objective [`f`](@ref).  
 Returns a vector with length `length(v)` (number of tokens).
 """
 function upper_limit end
