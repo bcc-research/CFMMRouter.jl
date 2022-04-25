@@ -3,8 +3,12 @@
 This example illustrates how to use CFMMRouter.jl to solve the multi-market
 arbitrage problem
 =#
+using Pkg
+Pkg.activate("..")
+Pkg.instantiate()
 using CFMMRouter
 using LinearAlgebra
+
 
 ## Create three pools of the same tokens, no fees (γ=1)
 equal_pool = ProductTwoCoin([1e6, 1e6], 1, [1, 2])

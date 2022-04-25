@@ -2,6 +2,9 @@
 # Liquidating a basket of tokens
 This example illustrates how to use CFMMRouter.jl to liquidate a basket of tokens.
 =#
+using Pkg
+Pkg.activate("..")
+Pkg.instantiate()
 using CFMMRouter
 using LinearAlgebra
 
@@ -21,10 +24,10 @@ router = Router(
     cfmms,
     maximum([maximum(cfmm.Ai) for cfmm in cfmms]),
 )
-    
+
 ## Optimize!
 route!(router)
-    
+
 ## Print results
 Ψ = round.(Int, netflows(router))
 println("Input Basket: $(round.(Int, Δin))")
