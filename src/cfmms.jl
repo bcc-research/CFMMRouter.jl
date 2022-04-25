@@ -209,6 +209,7 @@ b &= 1 - 4A \\
 c &= 4A(x+y) \\
 d &= \sqrt{\left(\frac{ac}{2}\right)^ 2 - \left(\frac{ab}{3}\right)^3} + \frac{ac}{2}
 ```
+Refer to https://hackmd.io/@prism0x/stableswap-optimal-routing for more details.
 """
 struct StableswapTwoCoin{T} <: CFMM{T}
     @add_two_coin_fields
@@ -244,7 +245,8 @@ function ∇ϕ!(R⁺, cfmm::StableswapTwoCoin; R=nothing)
     x = R[1]
     y = R[2]
     A = cfmm.A
-
+    # I used SymPy to get the derivatives, the expressions can probably
+    # be further simplified:
     R⁺[1] = 4 * x * y * (1 - 4 * A) * (-8 * A * x * y / 3 - 8 * A * y * (x + y) / 3 - (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x * y^2 * (x + y)^2 - 32 * x^2 * y^3 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(4 / 3)) + 4 * y * (1 - 4 * A) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(1 / 3)) + (8 * A * x * y / 3 + 8 * A * y * (x + y) / 3 + (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x * y^2 * (x + y)^2 - 32 * x^2 * y^3 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(2 / 3)
     R⁺[2] = 4 * x * y * (1 - 4 * A) * (-8 * A * x * y / 3 - 8 * A * x * (x + y) / 3 - (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x^2 * y * (x + y)^2 - 32 * x^3 * y^2 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(4 / 3)) + 4 * x * (1 - 4 * A) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(1 / 3)) + (8 * A * x * y / 3 + 8 * A * x * (x + y) / 3 + (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x^2 * y * (x + y)^2 - 32 * x^3 * y^2 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(2 / 3)
     return nothing
