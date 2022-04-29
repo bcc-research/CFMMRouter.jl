@@ -11,7 +11,8 @@ using LinearAlgebra
 
 
 ## Create three pools of the same tokens, no fees (γ=1)
-equal_pool = StableswapTwoCoin([1e4, 1e4], 1, [1, 2], 10)
+# equal_pool = ProductTwoCoin([1e6, 1e6], 1, [1, 2])
+equal_pool = StableswapTwoCoin([1e6, 1e6], 1, [1, 2], 10.)
 unequal_small_pool = ProductTwoCoin([1e3, 2e3], 1, [1, 2])
 weighted_pool = GeometricMeanTwoCoin([1e4, 2e4], [.4, .6], 1, [1, 2])
 

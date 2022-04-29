@@ -1,6 +1,6 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, StableswapTwoCoin
 export find_arb!
-export stableswap_arb_λ
+export stableswap_arb_lambda, stableswap_arb_delta
 
 abstract type CFMM{T} end
 
@@ -252,12 +252,7 @@ function ∇ϕ!(R⁺, cfmm::StableswapTwoCoin; R=nothing)
     return nothing
 end
 
-# See App. A of "An Analysis of Uniswap Markets"
-# @inline stableswap_arb_δ(m, r, k, γ) = max(sqrt(γ*m*k) - r, 0)/γ
-# @inline stableswap_arb_λ(m, r, k, γ) = max(r - sqrt(k/(m*γ)), 0)
-
-
-function stableswap_arb_lambda(m_p, r, k, gamma, A)
+function stableswap_arb_lambda(m_p, r, k, gamma, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
     @inline x(d) = r - d / gamma
     @inline alpha(d) = x(d) - k + k / (4 * A)
     @inline beta(d) = (k^3) / (4 * A * x(d))
@@ -277,51 +272,67 @@ function stableswap_arb_lambda(m_p, r, k, gamma, A)
         4 * (alpha(d)^2 + beta(d)) * (beta(d) + x(d)^2)
     ) / (8 * gamma^2 * x(d)^2 * (alpha(d)^2 + beta(d))^(3 / 2))
 
-    Delta_alpha = 100
-    println("Starting lambda")
-    for i = 1:256
+    Delta_alpha = 0
+    for i = 1:max_iter
         if alpha(Delta_alpha)^2 + beta(Delta_alpha) < 0
             return 0
         end
 
         val = func(Delta_alpha)
-        if abs(val) < 1e-10
-            println("\n\n")
+        Delta_alpha = min(Delta_alpha - val / deriv(Delta_alpha), r * gamma * (1 - epsilon))
+        println("Lambda ", i, " abs_err:", val, " sln:", Delta_alpha)
+        if abs(val) < tolerance
+            println()
             return max(Delta_alpha, 0)
         end
-        Delta_alpha = Delta_alpha - val / deriv(Delta_alpha)
-        println(i, " Err:", val, " Sln:", Delta_alpha)
         if isnan(Delta_alpha)
             return 0
         end
     end
+    # If the solver doesn't converge by this point, return 0
     return 0
-
 end
 
-function stableswap_arb_delta(m_p, R_b, k, gamma, A)
-    @inline func(Delta_b) = (
-        m_p * (gamma / 2 - (gamma * (Delta_b * gamma + R_b - k + k / (4 * A)) - gamma * k^3 / (8 * A * (Delta_b * gamma + R_b)^2)) / (2 * sqrt((Delta_b * gamma + R_b - k + k / (4 * A))^2 + k^3 / (4 * A * (Delta_b * gamma + R_b))))) - 1
+function stableswap_arb_delta(m_p, r, k, gamma, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
+    @inline y(d) = r + d
+    @inline alpha(d) = y(d) - k + k / (4 * A)
+    @inline beta(d) = (k^3) / (4 * A * y(d))
+
+    @inline func(d) = (
+        gamma
+        * m_p
+        * (1 / 2 - (alpha(d) - k^3 / (8 * A * y(d)^2)) / (2 * sqrt((alpha(d))^2 + beta(d))))
+        -
+        1
     )
-    @inline deriv(Delta_b) = (
-        m_p * (-(gamma^2 + gamma^2 * k^3 / (4 * A * (Delta_b * gamma + R_b)^3)) / (2 * sqrt((Delta_b * gamma + R_b - k + k / (4 * A))^2 + k^3 / (4 * A * (Delta_b * gamma + R_b)))) - (-gamma * (Delta_b * gamma + R_b - k + k / (4 * A)) + gamma * k^3 / (8 * A * (Delta_b * gamma + R_b)^2)) * (gamma * (Delta_b * gamma + R_b - k + k / (4 * A)) - gamma * k^3 / (8 * A * (Delta_b * gamma + R_b)^2)) / (2 * ((Delta_b * gamma + R_b - k + k / (4 * A))^2 + k^3 / (4 * A * (Delta_b * gamma + R_b)))^(3 / 2)))
+    @inline deriv(d) = (
+        gamma
+        * m_p
+        * (
+            +((alpha(d) - beta(d) / (2 * y(d)))^2 - (1 + beta(d) / y(d)^2) * ((alpha(d))^2 + beta(d)))
+            /
+            (2 * ((alpha(d))^2 + beta(d))^(3 / 2))
+        )
     )
-    Delta_beta = 100
-    println("Starting delta")
-    for i = 1:256
-        if (Delta_beta * gamma + R_b - k + k / (4 * A)) < 0
+
+    Delta_beta = 0
+    for i = 1:max_iter
+        if alpha(Delta_beta)^2 + beta(Delta_beta) < 0
             return 0
         end
+
         val = func(Delta_beta)
-        if abs(val) < 1e-10
+        Delta_beta = min(Delta_beta - val / deriv(Delta_beta), r * (1 - epsilon))
+        println("Delta ", i, " abs_err:", val, " sln:", Delta_beta)
+        if abs(val) < tolerance
+            println()
             return max(Delta_beta, 0)
         end
-        Delta_beta = Delta_beta - val / deriv(Delta_beta)
-        println(i, " Err:", val, " Sln:", Delta_beta)
         if isnan(Delta_beta)
             return 0
         end
     end
+    # If the solver doesn't converge by this point, return 0
     return 0
 end
 
@@ -329,23 +340,7 @@ end
 # Assumes that v > 0 and γ > 0.
 function find_arb!(Δ::VT, Λ::VT, cfmm::StableswapTwoCoin{T}, v::VT) where {T,VT<:AbstractVector{T}}
     R, γ, A = cfmm.R, cfmm.γ, cfmm.A
-    # k = R[1]*R[2]
-    # k = ϕ(cfmm, R)
-
-    x = R[1]
-    y = R[2]
-    A = cfmm.A
-
-    a = 4 * x * y
-    b = 1 - 4 * A
-    c = 4 * A * (x + y)
-
-    if (a * c / 2)^2 - (a * b / 3)^3 < 0
-        return nothing
-    end
-
-    d = sqrt((a * c / 2)^2 - (a * b / 3)^3) + a * c / 2
-    k = d^(1 / 3) + a * b / (3 * d^(1 / 3))
+    k = ϕ(cfmm, R=cfmm.R)
 
     Δ[1] = stableswap_arb_delta(v[2] / v[1], R[1], k, γ, A)
     Δ[2] = stableswap_arb_delta(v[1] / v[2], R[2], k, γ, A)
