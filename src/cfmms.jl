@@ -322,7 +322,7 @@ function stableswap_arb_delta(m_p, r, k, gamma, A, tolerance=1e-9, epsilon=1e-5,
         end
 
         val = func(Delta_beta)
-        Delta_beta = min(Delta_beta - val / deriv(Delta_beta), r * (1 - epsilon))
+        Delta_beta = max(Delta_beta - val / deriv(Delta_beta), -r * (1 - epsilon))
         println("Delta ", i, " abs_err:", val, " sln:", Delta_beta)
         if abs(val) < tolerance
             println()
