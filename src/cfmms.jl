@@ -1,6 +1,5 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, StableswapTwoCoin
 export find_arb!
-export stableswap_arb_lambda, stableswap_arb_delta
 
 abstract type CFMM{T} end
 
@@ -26,7 +25,7 @@ Solves the arbitrage problem for `cfmm` given price vector `v`,
 ```math
 \begin{array}{ll}
 \text{minimize} & \nu^T(\Lambda - \Delta) \\
-\text{subject to} & \varphi(R + \gamma\Delta - \Lambda) = \varphi(R) \\
+\text{subject to} & \varphi(R + \γ\Delta - \Lambda) = \varphi(R) \\
 & \Delta, \Lambda \geq 0.
 \end{array}
 ```
@@ -209,6 +208,7 @@ b &= 1 - 4A \\
 c &= 4A(x+y) \\
 d &= \sqrt{\left(\frac{ac}{2}\right)^ 2 - \left(\frac{ab}{3}\right)^3} + \frac{ac}{2}
 ```
+where `A` is the amplification coefficient.
 Refer to https://hackmd.io/@prism0x/stableswap-optimal-routing for more details.
 """
 struct StableswapTwoCoin{T} <: CFMM{T}
@@ -235,9 +235,7 @@ function ϕ(cfmm::StableswapTwoCoin; R=nothing)
     b = 1 - 4 * A
     c = 4 * A * (x + y)
     d = sqrt((a * c / 2)^2 - (a * b / 3)^3) + a * c / 2
-    varphi = d^(1 / 3) + a * b / (3 * d^(1 / 3))
-
-    return varphi
+    return d^(1 / 3) + a * b / (3 * d^(1 / 3))
 end
 
 function ∇ϕ!(R⁺, cfmm::StableswapTwoCoin; R=nothing)
@@ -252,40 +250,40 @@ function ∇ϕ!(R⁺, cfmm::StableswapTwoCoin; R=nothing)
     return nothing
 end
 
-function stableswap_arb_lambda(m_p, r, k, gamma, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
-    @inline x(d) = r - d / gamma
-    @inline alpha(d) = x(d) - k + k / (4 * A)
-    @inline beta(d) = (k^3) / (4 * A * x(d))
+function stableswap_arb_λ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
+    @inline x(Δ) = r - Δ / γ
+    @inline α(Δ) = x(Δ) - k + k / (4 * A)
+    @inline β(Δ) = (k^3) / (4 * A * x(Δ))
 
-    @inline func(d) = (
+    @inline Π′(Δ) = (
         m_p
         -
-        (-alpha(d) / gamma + beta(d) / (2 * gamma * x(d)))
+        (-α(Δ) / γ + β(Δ) / (2 * γ * x(Δ)))
         /
-        (2 * sqrt(alpha(d)^2 + beta(d)))
+        (2 * sqrt(α(Δ)^2 + β(Δ)))
         -
-        1 / (2 * gamma)
+        1 / (2 * γ)
     )
-    @inline deriv(d) = (
-        (2 * alpha(d) * x(d) - beta(d))^2
+    @inline Π′′(Δ) = (
+        (2 * α(Δ) * x(Δ) - β(Δ))^2
         -
-        4 * (alpha(d)^2 + beta(d)) * (beta(d) + x(d)^2)
-    ) / (8 * gamma^2 * x(d)^2 * (alpha(d)^2 + beta(d))^(3 / 2))
+        4 * (α(Δ)^2 + β(Δ)) * (β(Δ) + x(Δ)^2)
+    ) / (8 * γ^2 * x(Δ)^2 * (α(Δ)^2 + β(Δ))^(3 / 2))
 
-    Delta_alpha = 0
+    Δ_α = 0
     for i = 1:max_iter
-        if alpha(Delta_alpha)^2 + beta(Delta_alpha) < 0
+        if α(Δ_α)^2 + β(Δ_α) < 0
             return 0
         end
 
-        val = func(Delta_alpha)
-        Delta_alpha = min(Delta_alpha - val / deriv(Delta_alpha), r * gamma * (1 - epsilon))
-        println("Lambda ", i, " abs_err:", val, " sln:", Delta_alpha)
+        val = Π′(Δ_α)
+        Δ_α = min(Δ_α - val / Π′′(Δ_α), r * γ * (1 - epsilon))
+        println("Lambda ", i, " abs_err:", val, " sln:", Δ_α)
         if abs(val) < tolerance
             println()
-            return max(Delta_alpha, 0)
+            return max(Δ_α, 0)
         end
-        if isnan(Delta_alpha)
+        if isnan(Δ_α)
             return 0
         end
     end
@@ -293,42 +291,41 @@ function stableswap_arb_lambda(m_p, r, k, gamma, A, tolerance=1e-9, epsilon=1e-5
     return 0
 end
 
-function stableswap_arb_delta(m_p, r, k, gamma, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
-    @inline y(d) = r + d
-    @inline alpha(d) = y(d) - k + k / (4 * A)
-    @inline beta(d) = (k^3) / (4 * A * y(d))
+function stableswap_arb_δ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
+    @inline y(Δ) = r + Δ
+    @inline α(Δ) = y(Δ) - k + k / (4 * A)
+    @inline β(Δ) = (k^3) / (4 * A * y(Δ))
 
-    @inline func(d) = (
-        gamma
+    @inline Π′(Δ) = (
+        γ
         * m_p
-        * (1 / 2 - (alpha(d) - k^3 / (8 * A * y(d)^2)) / (2 * sqrt((alpha(d))^2 + beta(d))))
+        * (1 / 2 - (α(Δ) - k^3 / (8 * A * y(Δ)^2)) / (2 * sqrt((α(Δ))^2 + β(Δ))))
         -
         1
     )
-    @inline deriv(d) = (
-        gamma
+    @inline Π′′(Δ) = (
+        γ
         * m_p
         * (
-            +((alpha(d) - beta(d) / (2 * y(d)))^2 - (1 + beta(d) / y(d)^2) * ((alpha(d))^2 + beta(d)))
+            +((α(Δ) - β(Δ) / (2 * y(Δ)))^2 - (1 + β(Δ) / y(Δ)^2) * ((α(Δ))^2 + β(Δ)))
             /
-            (2 * ((alpha(d))^2 + beta(d))^(3 / 2))
+            (2 * ((α(Δ))^2 + β(Δ))^(3 / 2))
         )
     )
 
-    Delta_beta = 0
+    Δ_β = 0
     for i = 1:max_iter
-        if alpha(Delta_beta)^2 + beta(Delta_beta) < 0
+        if α(Δ_β)^2 + β(Δ_β) < 0
             return 0
         end
 
-        val = func(Delta_beta)
-        Delta_beta = max(Delta_beta - val / deriv(Delta_beta), -r * (1 - epsilon))
-        println("Delta ", i, " abs_err:", val, " sln:", Delta_beta)
+        val = Π′(Δ_β)
+        Δ_β = max(Δ_β - val / Π′′(Δ_β), -r * (1 - epsilon))
+        println("Delta ", i, " abs_err:", val, " sln:", Δ_β)
         if abs(val) < tolerance
-            println()
-            return max(Delta_beta, 0)
+            return max(Δ_β, 0)
         end
-        if isnan(Delta_beta)
+        if isnan(Δ_β)
             return 0
         end
     end
@@ -342,10 +339,10 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::StableswapTwoCoin{T}, v::VT) where {T,V
     R, γ, A = cfmm.R, cfmm.γ, cfmm.A
     k = ϕ(cfmm, R=cfmm.R)
 
-    Δ[1] = stableswap_arb_delta(v[2] / v[1], R[1], k, γ, A)
-    Δ[2] = stableswap_arb_delta(v[1] / v[2], R[2], k, γ, A)
+    Δ[1] = stableswap_arb_δ(v[2] / v[1], R[1], k, γ, A)
+    Δ[2] = stableswap_arb_δ(v[1] / v[2], R[2], k, γ, A)
 
-    Λ[1] = stableswap_arb_lambda(v[1] / v[2], R[1], k, γ, A)
-    Λ[2] = stableswap_arb_lambda(v[2] / v[1], R[2], k, γ, A)
+    Λ[1] = stableswap_arb_λ(v[1] / v[2], R[1], k, γ, A)
+    Λ[2] = stableswap_arb_λ(v[2] / v[1], R[2], k, γ, A)
     return nothing
 end
