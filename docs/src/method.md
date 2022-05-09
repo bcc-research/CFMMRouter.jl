@@ -73,7 +73,12 @@ The gradient $\nabla_\nu \mathbf{arb}_i(A_i^T\nu) = A_i (\Lambda_i^* - \Delta_i^
 
 By evaluating the function $g(\nu)$, we get the gradient essentially for free. 
 
+## Extensions and notes
+
 In the near future, we will support user-created CFMMs as well, which are specified by the trading function $\phi$, its gradient $\nabla \phi$, and its Hessian $\nabla^2\phi$. The gradient and Hessian may be specified exactly or by using automatic differentiation tools such as `ForwardDiff.jl` [^4].
+This method could be extended to include gas fees and uncertain transaction execution (probabalistic constraints).
+
+When using this method with real-world data, numerical issues (caused by the magnitude of and order of magnitude differences between numbers) may need to be carefully addressed via appropriate scaling.
 
 ## References
 [^1]: G. Angeris, T. Chitra, A. Evans, S. Boyd (2021). [Optimal routing for constant function market makers](https://angeris.github.io/papers/cfmm-routing.pdf).
