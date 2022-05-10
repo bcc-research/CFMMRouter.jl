@@ -79,9 +79,12 @@ In the near future, we will support user-created CFMMs as well, which are specif
 This method could be extended to include gas fees and uncertain transaction execution (probabalistic constraints).
 
 When using this method with real-world data, numerical issues (caused by the magnitude of and order of magnitude differences between numbers) may need to be carefully addressed via appropriate scaling.
+Additionally, the dual decomposition technique used will not necessarily yield a feasible $\Psi$ when the trading function $\phi$ is not strictly concave [^5] (e.g., for a constant sum CFMM).
+In this case, extra care needs to be taken during implementation.
 
 ## References
 [^1]: G. Angeris, T. Chitra, A. Evans, S. Boyd (2021). [Optimal routing for constant function market makers](https://angeris.github.io/papers/cfmm-routing.pdf).
 [^2]: G. Angeris, H. T. Kao, R. Chiang, C. Noyes, T. Chitra (2019). [An analysis of Uniswap markets](https://angeris.github.io/papers/uniswap_analysis.pdf).
 [^3]: C. Zhu, H. R. Byrd, P. Lu, J. Nocedal (1997). [L-BFGS-B](http://users.iems.northwestern.edu/~nocedal/lbfgsb.html).
 [^4]: J. Revels, M. Lubin, T. Papamarkou (2016). [Forward-mode automatic differentiation in Julia](https://arxiv.org/abs/1607.07892).
+[^5]: S. Boyd, L. Xiao, A. Mutapcic, J. Mattingley (2015). [Notes on Decomposition Methods](https://web.stanford.edu/class/ee364b/lectures/decomposition_notes.pdf)
