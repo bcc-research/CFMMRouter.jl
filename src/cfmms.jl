@@ -1,6 +1,8 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, StableswapTwoCoin
 export find_arb!
 
+using ForwardDiff;
+
 abstract type CFMM{T} end
 
 @def add_generic_fields begin
@@ -240,42 +242,26 @@ end
 
 function ∇ϕ!(R⁺, cfmm::StableswapTwoCoin; R=nothing)
     R = isnothing(R) ? cfmm.R : R
-    x = R[1]
-    y = R[2]
-    A = cfmm.A
-    # I used SymPy to get the derivatives, the expressions can probably
-    # be further simplified:
-    R⁺[1] = 4 * x * y * (1 - 4 * A) * (-8 * A * x * y / 3 - 8 * A * y * (x + y) / 3 - (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x * y^2 * (x + y)^2 - 32 * x^2 * y^3 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(4 / 3)) + 4 * y * (1 - 4 * A) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(1 / 3)) + (8 * A * x * y / 3 + 8 * A * y * (x + y) / 3 + (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x * y^2 * (x + y)^2 - 32 * x^2 * y^3 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(2 / 3)
-    R⁺[2] = 4 * x * y * (1 - 4 * A) * (-8 * A * x * y / 3 - 8 * A * x * (x + y) / 3 - (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x^2 * y * (x + y)^2 - 32 * x^3 * y^2 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(4 / 3)) + 4 * x * (1 - 4 * A) / (3 * (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(1 / 3)) + (8 * A * x * y / 3 + 8 * A * x * (x + y) / 3 + (32 * A^2 * x^2 * y^2 * (2 * x + 2 * y) + 64 * A^2 * x^2 * y * (x + y)^2 - 32 * x^3 * y^2 * (1 - 4 * A)^3 / 9) / (3 * sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))) / (8 * A * x * y * (x + y) + sqrt(64 * A^2 * x^2 * y^2 * (x + y)^2 - 64 * x^3 * y^3 * (1 - 4 * A)^3 / 27))^(2 / 3)
+    R⁺ = ForwardDiff.gradient(x -> ϕ(cfmm; x), R)
     return nothing
 end
 
-function stableswap_arb_λ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
-    @inline x(Δ) = r - Δ / γ
-    @inline α(Δ) = x(Δ) - k + k / (4 * A)
-    @inline β(Δ) = (k^3) / (4 * A * x(Δ))
+function stableswap_r(rbar, k, A)
+    α = rbar - k + k / (4 * A)
+    β = k^3 / (4 * A * rbar)
+    return (sqrt(α^2 + β) - α) / 2
+end
 
-    @inline Π′(Δ) = (
-        m_p
-        -
-        (-α(Δ) / γ + β(Δ) / (2 * γ * x(Δ)))
-        /
-        (2 * sqrt(α(Δ)^2 + β(Δ)))
-        -
-        1 / (2 * γ)
-    )
-    @inline Π′′(Δ) = (
-        (2 * α(Δ) * x(Δ) - β(Δ))^2
-        -
-        4 * (α(Δ)^2 + β(Δ)) * (β(Δ) + x(Δ)^2)
-    ) / (8 * γ^2 * x(Δ)^2 * (α(Δ)^2 + β(Δ))^(3 / 2))
+function stableswap_arb_λ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
+    @inline r_(x) = stableswap_r(x, k, A)
+    @inline r′(x) = ForwardDiff.derivative(r_, x)
+    @inline r′′(x) = ForwardDiff.derivative(r′, x)
+
+    @inline Π′(Δ) = m_p + 1 / γ * r′(r - Δ / γ)
+    @inline Π′′(Δ) = -1 / γ^2 * r′′(r - Δ / γ)
 
     Δ_α = 0
     for i = 1:max_iter
-        if α(Δ_α)^2 + β(Δ_α) < 0
-            return 0
-        end
-
         val = Π′(Δ_α)
         Δ_α = min(Δ_α - val / Π′′(Δ_α), r * γ * (1 - epsilon))
         println("Lambda ", i, " abs_err:", val, " sln:", Δ_α)
@@ -292,37 +278,20 @@ function stableswap_arb_λ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_i
 end
 
 function stableswap_arb_δ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
-    @inline y(Δ) = r + Δ
-    @inline α(Δ) = y(Δ) - k + k / (4 * A)
-    @inline β(Δ) = (k^3) / (4 * A * y(Δ))
+    @inline r_(x) = stableswap_r(x, k, A)
+    @inline r′(x) = ForwardDiff.derivative(r_, x)
+    @inline r′′(x) = ForwardDiff.derivative(r′, x)
 
-    @inline Π′(Δ) = (
-        γ
-        * m_p
-        * (1 / 2 - (α(Δ) - k^3 / (8 * A * y(Δ)^2)) / (2 * sqrt((α(Δ))^2 + β(Δ))))
-        -
-        1
-    )
-    @inline Π′′(Δ) = (
-        γ
-        * m_p
-        * (
-            +((α(Δ) - β(Δ) / (2 * y(Δ)))^2 - (1 + β(Δ) / y(Δ)^2) * ((α(Δ))^2 + β(Δ)))
-            /
-            (2 * ((α(Δ))^2 + β(Δ))^(3 / 2))
-        )
-    )
+    @inline Π′(Δ) = -m_p * γ * r′(r + Δ) - 1
+    @inline Π′′(Δ) = -m_p * γ * r′′(r + Δ)
 
     Δ_β = 0
     for i = 1:max_iter
-        if α(Δ_β)^2 + β(Δ_β) < 0
-            return 0
-        end
-
         val = Π′(Δ_β)
         Δ_β = max(Δ_β - val / Π′′(Δ_β), -r * (1 - epsilon))
         println("Delta ", i, " abs_err:", val, " sln:", Δ_β)
         if abs(val) < tolerance
+            println()
             return max(Δ_β, 0)
         end
         if isnan(Δ_β)
