@@ -24,10 +24,11 @@ end
 @testset "arbitrage checks: two coins" begin
     Δ = MVector{2, Float64}(undef)
     Λ = MVector{2, Float64}(undef)
-    
+
     n = 3
     Random.seed!(1234)
-    γs = [rand() for i in 1:n]
+    # γs = [rand() for i in 1:n]
+    γs = [1 for i in 1:n]
     Rs = [rand(2)*10 for i in 1:n]
     νs = [@MVector rand(2) for i in 1:n]
     cache = init_opt_cache(Rs[1])
@@ -70,6 +71,15 @@ end
             @test optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
         end
     end
+
+    @testset "stableswap" begin
+        for R in Rs, γ in γs, ν in νs
+            cfmm = StableswapTwoCoin(R, γ, [1, 2], 0.1)
+            find_arb!(Δ, Λ, cfmm, ν)
+            @test optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
+        end
+    end
+
 end
 
 end
