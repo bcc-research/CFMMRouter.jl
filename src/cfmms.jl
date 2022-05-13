@@ -1,5 +1,5 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, StableswapTwoCoin
-export find_arb!
+export find_arb!, ∇ϕ!
 
 using ForwardDiff;
 
@@ -242,7 +242,9 @@ end
 
 function ∇ϕ!(R⁺, cfmm::StableswapTwoCoin; R=nothing)
     R = isnothing(R) ? cfmm.R : R
-    R⁺ = ForwardDiff.gradient(x -> ϕ(cfmm; x), R)
+    R⁺_ = ForwardDiff.gradient(x -> ϕ(cfmm; R=x), R)
+    R⁺[1] = R⁺_[1]
+    R⁺[2] = R⁺_[2]
     return nothing
 end
 
