@@ -50,14 +50,14 @@ where `c` is a positive price vector.
 """
 struct LinearNonnegative{T} <: Objective
     c::AbstractVector{T}
-    function LinearNonnegative(c::Vector{T}) where {T <: AbstractFloat}
+    function LinearNonnegative(c::Vector{T}) where {T<:AbstractFloat}
         all(c .> 0) || throw(ArgumentError("all elements must be strictly positive"))
         return new{T}(
             c,
         )
     end
 end
-LinearNonnegative(c::Vector{T}) where {T <: Real} = LinearNonnegative(Float64.(c))
+LinearNonnegative(c::Vector{T}) where {T<:Real} = LinearNonnegative(Float64.(c))
 
 function f(obj::LinearNonnegative{T}, v) where {T}
     if all(obj.c .<= v)
@@ -93,7 +93,7 @@ struct BasketLiquidation{T} <: Objective
     i::Int
     Δin::Vector{T}
     
-    function BasketLiquidation(i::Integer, Δin::Vector{T}) where {T <: AbstractFloat}
+    function BasketLiquidation(i::Integer, Δin::Vector{T}) where {T<:AbstractFloat}
         !(i > 0 && i < length(Δin)) && throw(ArgumentError("Invalid index i"))
         return new{T}(
             i,
@@ -101,7 +101,7 @@ struct BasketLiquidation{T} <: Objective
         )
     end
 end
-BasketLiquidation(i::Integer, Δin::Vector{T}) where {T <: Real} = BasketLiquidation(i, Float64.(Δin))
+BasketLiquidation(i::Integer, Δin::Vector{T}) where {T<:Real} = BasketLiquidation(i, Float64.(Δin))
 
 function f(obj::BasketLiquidation{T}, v) where {T}
     if v[obj.i] >= 1.0
