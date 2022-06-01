@@ -87,6 +87,24 @@ function two_coin_check_cast(R, γ, idx)
     return γ_T, idx_uint, T
 end
 
+# n-coin specific cases
+function n_coin_check_cast(R, γ, idx)
+    length(idx) != length(R) && throw(ArgumentError("length of R and index must be equal for *Generic constructors"))
+
+    n_coin = length(R)
+    T = eltype(R)
+
+    if T <: Integer
+        T = Float64
+    end
+
+    γ_T = convert(T, γ)
+    idx_uint = convert.(UInt, idx)
+
+    return γ_T, idx_uint, T, n_coin
+end
+
+
 @doc raw"""
     ProductTwoCoin(R, γ, idx)
 
@@ -307,6 +325,125 @@ end
 # Solves the maximum arbitrage problem for the two-coin Stableswap case.
 # Assumes that v > 0 and γ > 0.
 function find_arb!(Δ::VT, Λ::VT, cfmm::StableswapTwoCoin{T}, v::VT) where {T,VT<:AbstractVector{T}}
+    R, γ, A = cfmm.R, cfmm.γ, cfmm.A
+    k = ϕ(cfmm, R=cfmm.R)
+
+    Δ[1] = stableswap_arb_δ(v[2] / v[1], R[1], k, γ, A)
+    Δ[2] = stableswap_arb_δ(v[1] / v[2], R[2], k, γ, A)
+
+    Λ[1] = stableswap_arb_λ(v[1] / v[2], R[1], k, γ, A)
+    Λ[2] = stableswap_arb_λ(v[2] / v[1], R[2], k, γ, A)
+    return nothing
+end
+
+
+@doc raw"""
+    StableswapTwoCoin(R, γ, idx)
+
+Creates a two coin Stableswap CFMM with coins `idx[1]` and `idx[2]`, reserves `R`,
+and fee `γ`. For 2 coins, it looks like the following:
+```math
+\varphi(x, y) &= \sqrt[3]{d}+\frac{ab}{3\sqrt[3]{d}}\quad\text{with} \\
+a &= 4xy \\
+b &= 1 - 4A \\
+c &= 4A(x+y) \\
+d &= \sqrt{\left(\frac{ac}{2}\right)^ 2 - \left(\frac{ab}{3}\right)^3} + \frac{ac}{2}
+```
+where `A` is the amplification coefficient.
+Refer to https://hackmd.io/@prism0x/stableswap-optimal-routing for more details.
+"""
+struct StableswapGeneric{T} <: CFMM{T}
+    @add_generic_fields
+    A::T
+    function StableswapGeneric(R, γ, idx, A)
+        γ_T, idx_uint, T, n_coin = n_coin_check_cast(R, γ, idx)
+        return new{T}(
+            MVector{dim,T}(R),
+            γ_T,
+            MVector{dim,UInt}(idx_uint),
+            A
+        )
+    end
+end
+
+function ϕ(cfmm::StableswapGeneric; R=nothing)
+    R = isnothing(R) ? cfmm.R : R
+    sum_ = sum(R)
+    prod_ = prod(R)
+    n = length(R)
+    n_n = n^n
+    A = cfmm.A
+
+    # return A*n^n*sum_ +
+end
+
+function ∇ϕ!(R⁺, cfmm::StableswapGeneric; R=nothing)
+    R = isnothing(R) ? cfmm.R : R
+    R⁺_ = ForwardDiff.gradient(x -> ϕ(cfmm; R=x), R)
+    R⁺[1] = R⁺_[1]
+    R⁺[2] = R⁺_[2]
+    return nothing
+end
+
+# function stableswap_r(rbar, k, A)
+#     α = rbar - k + k / (4 * A)
+#     β = k^3 / (4 * A * rbar)
+#     return (sqrt(α^2 + β) - α) / 2
+# end
+
+# function stableswap_arb_λ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
+#     @inline r_(x) = stableswap_r(x, k, A)
+#     @inline r′(x) = ForwardDiff.derivative(r_, x)
+#     @inline r′′(x) = ForwardDiff.derivative(r′, x)
+
+#     @inline Π′(Δ) = m_p + 1 / γ * r′(r - Δ / γ)
+#     @inline Π′′(Δ) = -1 / γ^2 * r′′(r - Δ / γ)
+
+#     Δ_α = 0
+#     for i = 1:max_iter
+#         val = Π′(Δ_α)
+#         Δ_α = min(Δ_α - val / Π′′(Δ_α), r * γ * (1 - epsilon))
+#         println("Lambda ", i, " abs_err:", val, " sln:", Δ_α)
+#         if abs(val) < tolerance
+#             println()
+#             return max(Δ_α, 0)
+#         end
+#         if isnan(Δ_α)
+#             return 0
+#         end
+#     end
+#     # If the solver doesn't converge by this point, return 0
+#     return 0
+# end
+
+# function stableswap_arb_δ(m_p, r, k, γ, A, tolerance=1e-9, epsilon=1e-5, max_iter=256)
+#     @inline r_(x) = stableswap_r(x, k, A)
+#     @inline r′(x) = ForwardDiff.derivative(r_, x)
+#     @inline r′′(x) = ForwardDiff.derivative(r′, x)
+
+#     @inline Π′(Δ) = -m_p * γ * r′(r + Δ) - 1
+#     @inline Π′′(Δ) = -m_p * γ * r′′(r + Δ)
+
+#     Δ_β = 0
+#     for i = 1:max_iter
+#         val = Π′(Δ_β)
+#         Δ_β = max(Δ_β - val / Π′′(Δ_β), -r * (1 - epsilon))
+#         println("Delta ", i, " abs_err:", val, " sln:", Δ_β)
+#         if abs(val) < tolerance
+#             println()
+#             return max(Δ_β, 0)
+#         end
+#         if isnan(Δ_β)
+#             return 0
+#         end
+#     end
+#     # If the solver doesn't converge by this point, return 0
+#     return 0
+# end
+
+# Solves the maximum arbitrage problem for the generic Stableswap case.
+# Assumes that v > 0 and γ > 0.
+function find_arb!(Δ::VT, Λ::VT, cfmm::StableswapGeneric{T}, v::VT) where {T,VT<:AbstractVector{T}}
     R, γ, A = cfmm.R, cfmm.γ, cfmm.A
     k = ϕ(cfmm, R=cfmm.R)
 

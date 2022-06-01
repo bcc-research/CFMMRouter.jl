@@ -2,9 +2,6 @@
 # Liquidating a basket of tokens
 This example illustrates how to use CFMMRouter.jl to liquidate a basket of tokens.
 =#
-using Pkg
-Pkg.activate("..")
-Pkg.instantiate()
 using CFMMRouter
 using LinearAlgebra
 

@@ -3,9 +3,6 @@
 This example illustrates how to use CFMMRouter.jl to solve the multi-market
 arbitrage problem
 =#
-using Pkg
-Pkg.activate("..")
-Pkg.instantiate()
 using CFMMRouter
 using LinearAlgebra
 

@@ -74,7 +74,7 @@ end
 
     @testset "stableswap" begin
         for R in Rs, γ in γs, ν in νs
-            cfmm = StableswapTwoCoin(R, γ, [1, 2], 0.1)
+            cfmm = StableswapTwoCoin(R, γ, [1, 2], 5)
             find_arb!(Δ, Λ, cfmm, ν)
             @test optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
         end
