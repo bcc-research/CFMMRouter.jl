@@ -1,13 +1,23 @@
 using JuMP, LinearAlgebra, Ipopt
 # using ForwardDiff
 
-R = [100.0, 80.0, 50.0]
-π = [0.9, 1, 1.3]
-A = 10.0
-γ = 0.996
+# R = [100.0, 80.0, 50.0]
+# π = [0.9, 1.2, 1.3]
 
-# ϕ(R, α) = sum(R) + α / prod(R)
-ϕ(α, R...) = sum(R) + α / prod(R)
+R = [100.0, 90.0]
+π = [1., 0.9]
+
+# A = 10000.0
+A = 10.0
+
+γ = 0.996
+# γ = 1.
+
+ϕ(α, R...) = sum(R) - α / prod(R)
+# ϕ(α, R...) = solve_D(R, A)
+# ϕ(α, R...) = prod(R)
+# ϕ(α, R...) = sum(R)
+
 
 # function ∇ϕ(R, α)
 #     return ForwardDiff.gradient(x -> ϕ(x, α), R)
@@ -38,6 +48,8 @@ function find_arb(R, π, A, γ)
     D = solve_D(R, A)
     α = D^(n + 1) / (A * n^(2 * n))
 
+    # @assert A*n^n *sum(R) + D - A*D*n^n - D^(n+1)/n^n/prod(R) <= 1e-10
+
     model = Model(Ipopt.Optimizer)
     register(model, :ϕ, n + 1, ϕ; autodiff=true)
 
@@ -45,10 +57,11 @@ function find_arb(R, π, A, γ)
     @variable(model, Λ[1:n] >= 0)
 
     ex1 = @NLexpression(model, [i = 1:n], R[i] + Δ[i] - Λ[i] / γ)
+    # ex1 = @NLexpression(model, [i = 1:n], R[i] + γ * Δ[i] - Λ[i])
     # @NLconstraint(model, ϕ(R + Δ - Λ / γ, α) >= ϕ(R, α))
     @NLconstraint(model, ϕ(α, ex1...) >= ϕ(α, R...))
-    @NLconstraint(model, [i=1:n], ex1[i] >= 0)
     @NLconstraint(model, [i=1:n], Δ[i] * Λ[i] == 0)
+    @NLconstraint(model, [i=1:n], ex1[i] >= 0)
 
     @objective(model, Max, sum(π[i] * (Λ[i] - Δ[i]) for i = 1:n))
     optimize!(model)
@@ -59,6 +72,9 @@ function find_arb(R, π, A, γ)
     println("Λ = ", value.(Λ))
 
     R_new = R + value.(Δ) - value.(Λ) / γ
+
+    println("R                = ", R)
+    println("R + Δ - Λ / γ    = ", R_new)
     println("ϕ(R)             = ", ϕ(α, R...))
     println("ϕ(R + Δ - Λ / γ) = ", ϕ(α, R_new...))
 end
