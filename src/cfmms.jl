@@ -1,4 +1,4 @@
-export CFMM, ProductTwoCoin, GeometricMeanTwoCoin
+export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, UniV3
 export find_arb!
 
 abstract type CFMM{T} end
