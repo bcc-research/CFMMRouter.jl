@@ -193,9 +193,7 @@ end
 
 
 struct UniV3{T} <: CFMM{T}
-    R::Vector{T}
-    γ::T
-    Ai::Vector{Int}
+    @add_two_coin_fields
     current_price :: T
     current_tick_index :: Int #This is the index of the maximal tick with price lower than current_price in the ticks dictionary
     ticks #This is the tick mapping sorted by price
@@ -219,8 +217,7 @@ function virtual_reserves(P,L)
     y = L*sP
     return([x, y])
 end
-@inline prod_arb_δ(m, r, k, γ) = max(sqrt(γ*m*k) - r, 0)/γ
-@inline prod_arb_λ(m, r, k, γ) = max(r - sqrt(k/(m*γ)), 0)
+
 function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:AbstractVector{T}} 
     current_price, current_tick_index, γ, ticks = cfmm.current_price, cfmm.current_tick_index, cfmm.γ, cfmm.ticks
     Δ[1] = 0
