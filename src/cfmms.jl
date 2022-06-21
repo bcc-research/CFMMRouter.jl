@@ -190,3 +190,106 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {
     Λ[2] = geom_arb_λ(v[2]/v[1], R[2], R[1], η, γ)
     return nothing
 end
+
+
+struct UniV3{T} <: CFMM{T}
+    R::Vector{T}
+    γ::T
+    Ai::Vector{Int}
+    current_price :: T
+    current_tick_index :: Int #This is the index of the maximal tick with price lower than current_price in the ticks dictionary
+    ticks #This is the tick mapping sorted by price
+    function UniV3(R,γ,idx,current_price,current_tick_index,ticks)
+        γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
+        return new{T}(
+            MVector{2,T}(R),
+            γ_T,
+            MVector{2,UInt}(idx_uint),
+            current_price,
+            current_tick_index,
+            ticks
+        )
+    end
+end
+
+## See univ3 whitepaper
+function virtual_reserves(P,L)
+    sP = sqrt(P)
+    x = L/sP
+    y = L*sP
+    return([x, y])
+end
+@inline prod_arb_δ(m, r, k, γ) = max(sqrt(γ*m*k) - r, 0)/γ
+@inline prod_arb_λ(m, r, k, γ) = max(r - sqrt(k/(m*γ)), 0)
+function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:AbstractVector{T}} 
+    current_price, current_tick_index, γ, ticks = cfmm.current_price, cfmm.current_tick_index, cfmm.γ, cfmm.ticks
+    Δ[1] = 0
+    Δ[2] = 0
+
+    Λ[1] = 0
+    Λ[2] = 0
+
+    target_price = v[2]/v[1]
+
+    if target_price >= current_price #iterate forwards in the tick mapping
+        i = 1
+        while true
+            next_tick_price = ticks[current_tick_index + i]["price"]
+            if next_tick_price > target_price ## so now we know that current_price <= target_price < next_tick_price
+                R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
+                k = R[1]*R[2]
+
+                Δ[1] += prod_arb_δ(target_price, R[1], k, γ)
+                Δ[2] += prod_arb_δ(1/target_price, R[2], k, γ)
+
+                Λ[1] += prod_arb_λ(1/target_price, R[1], k, γ)
+                Λ[2] += prod_arb_λ(target_price, R[2], k, γ)
+
+                break
+
+            elseif next_tick_price <= target_price ## so now we know that current_price <= next_tick_price <= target_price
+                R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
+                k = R[1]*R[2]
+
+                Δ[1] += prod_arb_δ(next_tick_price, R[1], k, γ)
+                Δ[2] += prod_arb_δ(1/next_tick_price, R[2], k, γ)
+
+                Λ[1] += prod_arb_λ(1/next_tick_price, R[1], k, γ)
+                Λ[2] += prod_arb_λ(next_tick_price, R[2], k, γ)
+            end
+            i += 1
+        end
+
+    elseif target_price < current_price #iterate backwards in the tick mapping
+        i = 1
+        while true
+            prev_tick_price = ticks[current_tick_index - i]["price"]
+            if prev_tick_price < target_price ## so now we know that prev_tick_price < target_price <=  current_price
+
+                R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 1]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
+                k = R[1]*R[2]
+                
+                Δ[1] += prod_arb_δ(target_price, R[1], k, γ)
+                Δ[2] += prod_arb_δ(1/target_price, R[2], k, γ)
+
+                Λ[1] += prod_arb_λ(1/target_price, R[1], k, γ)
+                Λ[2] += prod_arb_λ(target_price, R[2], k, γ)
+
+                break
+
+            elseif prev_tick_price <= target_price ## so now we know that current_price <= next_tick_price <= target_price
+                R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 1]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
+                k = R[1]*R[2]
+
+                Δ[1] += prod_arb_δ(prev_tick_price, R[1], k, γ)
+                Δ[2] += prod_arb_δ(1/prev_tick_price, R[2], k, γ)
+
+                Λ[1] += prod_arb_λ(1/prev_tick_price, R[1], k, γ)
+                Λ[2] += prod_arb_λ(prev_tick_price, R[2], k, γ)
+            end
+            i += 1
+        end
+    end
+    return nothing
+end
+
