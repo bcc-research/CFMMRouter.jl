@@ -1,6 +1,15 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, UniV3
 export find_arb!
 
+#@TODO not sure why i couldnt get this to work without including this macro here 
+macro def(name, definition)
+    return quote
+        macro $(esc(name))()
+            esc($(Expr(:quote, definition)))
+        end
+    end
+end
+
 abstract type CFMM{T} end
 
 @def add_generic_fields begin
