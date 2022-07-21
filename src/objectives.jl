@@ -139,7 +139,7 @@ Swap objective for the routing problem with `n` tokens:
 where `i` is the desired output token, `j` is the input token, and `δ` the amount input.
 Note that this is shorthand for a BasketLiquidation objective where `Δin` is a one-hot vector. 
 """
-function Swap(i::Int, j::Int, δ::T, n::Int) where {T <: AbstractFloat}
+function Swap(i::Int, j::Int, δ::T, n::Int) where {T<:AbstractFloat}
     Δin = zeros(T, n)
     Δin[j] = δ
     return BasketLiquidation(i, Δin)
