@@ -61,7 +61,7 @@ The general arbitrage problem, for arbitrary, convex trading functions $\phi$, c
 ## Minimizing the dual problem
 As a result of strong duality, minimizing $g(\nu)$ is equivalent to solving the original problem in that the optimal values are equal. After optimizing $g(\nu)$, we can reconstruct the trade using the $\Delta_i$'s and $\Lambda_i$'s found in the sub problems.
 
-To minimize $g(\nu)$, we use LBFGS-B [^3], which requires evaluation of $g(\nu)$ and $\nabla g(\nu)$. Note that the gradient of the Fenchel conjugate $\nabla f^*(y)$ is the $x$ at which the supremum $\sup_x (y^Tx - f(x))$ is attained (this may not be a unique point but instead be a set of points—called the subdifferential—in which case we simply choose any $x$ in this set).
+To minimize $g(\nu)$, we use L-BFGS-B[^3], which requires evaluation of $g(\nu)$ and $\nabla g(\nu)$. Note that the gradient of the Fenchel conjugate $\nabla f^*(y)$ is the $x$ at which the supremum $\sup_x (y^Tx - f(x))$ is attained (this may not be a unique point but instead be a set of points—called the subdifferential—in which case we simply choose any $x$ in this set).
 
 The gradient $\nabla_\nu \mathbf{arb}_i(A_i^T\nu) = A_i (\Lambda_i^* - \Delta_i^*)$, where $\Lambda^*$ and $\Delta_i^*$ are the optimal values associated with $\mathbf{arb}_i(A_i^T\nu)$. Thus,
 

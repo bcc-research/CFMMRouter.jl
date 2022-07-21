@@ -99,9 +99,9 @@ struct ProductTwoCoin{T} <: CFMM{T}
     function ProductTwoCoin(R, γ, idx)
         γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
         return new{T}(
-            MVector{2, T}(R),
+            MVector{2,T}(R),
             γ_T,
-            MVector{2, UInt}(idx_uint)
+            MVector{2,UInt}(idx_uint)
         )
     end
 end
@@ -123,7 +123,7 @@ end
 
 # Solves the maximum arbitrage problem for the two-coin constant product case.
 # Assumes that v > 0 and γ > 0.
-function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT <: AbstractVector{T}}
+function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT<:AbstractVector{T}}
     R, γ = cfmm.R, cfmm.γ
     k = R[1]*R[2]
 
@@ -147,15 +147,15 @@ Specifically, the invariant is
 """
 struct GeometricMeanTwoCoin{T} <: CFMM{T}
     @add_two_coin_fields
-    w::SVector{2, T}
+    w::SVector{2,T}
     function GeometricMeanTwoCoin(R, w, γ, idx)
         γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
     
         return new{T}(
-            MVector{2, T}(R),
+            MVector{2,T}(R),
             γ_T,
-            MVector{2, UInt}(idx_uint),
-            SVector{2, T}(w),
+            MVector{2,UInt}(idx_uint),
+            SVector{2,T}(w),
         )
     end
 end
@@ -178,7 +178,7 @@ end
 
 # Solves the maximum arbitrage problem for the two-coin geometric mean case.
 # Assumes that v > 0 and w > 0.
-function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {T, VT <: AbstractVector{T}}
+function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {T, VT<:AbstractVector{T}}
     R, γ, w = cfmm.R, cfmm.γ, cfmm.w
 
     η = w[1]/w[2]

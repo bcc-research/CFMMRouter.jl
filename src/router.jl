@@ -1,7 +1,7 @@
 export Router, route!
 export netflows!, netflows, update_reserves!
 
-struct Router{O, T}
+struct Router{O,T}
     objective::O
     cfmms::Vector{CFMM{T}}
     Δs::Vector{AbstractVector{T}}
@@ -15,7 +15,7 @@ end
 Constructs a router that finds a set of trades `(router.Δs, router.Λs)` through `cfmms` 
 which maximizes `objective`. The number of tokens `n_tokens` must be specified.
 """
-function Router(objective::O, cfmms::Vector{C}, n_tokens) where {T, O <: Objective, C <: CFMM{T}}
+function Router(objective::O, cfmms::Vector{C}, n_tokens) where {T, O<:Objective, C<:CFMM{T}}
     V = Vector{T}
     VT = Vector{Vector{typeof(objective).parameters[1]}}
     Δs = VT()
@@ -56,7 +56,7 @@ Solves the routing problem,
 ```
 Overwrites `r.Δs` and `r.Λs`.
 """
-function route!(r::R; v=nothing, verbose=false, m=5) where {R <: Router}
+function route!(r::R; v=nothing, verbose=false, m=5) where {R<:Router}
     # Optimizer set up
     optimizer = L_BFGS_B(length(r.v), 17)
     if isnothing(v)
