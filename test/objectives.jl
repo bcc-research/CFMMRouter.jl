@@ -32,4 +32,15 @@ end
 
 end
 
+@testset "Swap" begin
+    i, j = 1, 2
+    δ = 5.0
+    n = 3
+    swap = Swap(i, j, δ, n)
+    obj = BasketLiquidation(i, [0.0, δ, 0.0])
+    @test typeof(swap) <: BasketLiquidation
+    @test swap.Δin == obj.Δin
+    @test swap.i == obj.i
+end
+
 end

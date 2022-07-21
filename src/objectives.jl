@@ -1,4 +1,4 @@
-export Objective, LinearNonnegative, BasketLiquidation
+export Objective, LinearNonnegative, BasketLiquidation, Swap
 
 abstract type Objective end
 
@@ -127,3 +127,20 @@ end
     return ret
 end
 @inline upper_limit(o::BasketLiquidation{T}) where {T} = convert(T, Inf) .+ zero(o.Δin)
+
+
+@doc raw"""
+    Swap(i, j, δ, n)
+
+Swap objective for the routing problem with `n` tokens:
+```math
+    \Psi_i - \mathbf{I}(\Psi_{[n]\setminus\{i,j\}} = 0,\; {\Psi_j = -\delta})
+```
+where `i` is the desired output token, `j` is the input token, and `δ` the amount input.
+Note that this is shorthand for a BasketLiquidation objective where `Δin` is a one-hot vector. 
+"""
+function Swap(i::Int, j::Int, δ::T, n::Int) where {T <: AbstractFloat}
+    Δin = zeros(T, n)
+    Δin[j] = δ
+    return BasketLiquidation(i, Δin)
+end
