@@ -21,6 +21,7 @@ The [`BasketLiquidation`](@ref) objective is
     U(\Psi) = \Psi_i - \mathbf{I}(\Psi_{-i} + Δ^\mathrm{in}_{-i} = 0, ~ \Psi_i \geq 0),
 ```
 where $Δ^\mathrm{in}$ is a basket of tokens to be liquidated into token $i$. Here, $\Psi_{-i}$ is the vector $\Psi$ with entry $i$ removed, and $\mathbf{I}(\Psi_{-i} + Δ^\mathrm{in}_{-i} = 0, ~\Psi_i \geq 0)$ is the indicator function which is zero if all conditions are met and is $\infty$, otherwise. In the special case where $Δ^\mathrm{in}_k$ is zero at all indices except for some index $j \ne i$, this objective defines a swap from token $j$ to token $i$ where we attempt to maximize the amount of token $i$ received.
+We implement a [`Swap`](@ref) objective as shorthand for this special case.
 
 
 ## Specifying new utility functions
