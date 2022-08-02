@@ -1,15 +1,6 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, UniV3
 export find_arb!
 
-#@TODO not sure why i couldnt get this to work without including this macro here 
-macro def(name, definition)
-    return quote
-        macro $(esc(name))()
-            esc($(Expr(:quote, definition)))
-        end
-    end
-end
-
 abstract type CFMM{T} end
 
 @def add_generic_fields begin
@@ -235,7 +226,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
     Λ[1] = 0
     Λ[2] = 0
 
-    target_price = v[2]/v[1]
+    target_price = v[2]/v[1]/γ
 
     if target_price >= current_price #iterate forwards in the tick mapping
         i = 1
@@ -245,11 +236,11 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
                 R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
                 k = R[1]*R[2]
 
-                Δ[1] += prod_arb_δ(target_price, R[1], k, γ)
-                Δ[2] += prod_arb_δ(1/target_price, R[2], k, γ)
+                Δ[1] += prod_arb_δ(target_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(1/target_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/target_price, R[1], k, γ)
-                Λ[2] += prod_arb_λ(target_price, R[2], k, γ)
+                Λ[1] += prod_arb_λ(1/target_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(target_price, R[2], k, 1)
 
                 break
 
@@ -257,11 +248,11 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
                 R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
                 k = R[1]*R[2]
 
-                Δ[1] += prod_arb_δ(next_tick_price, R[1], k, γ)
-                Δ[2] += prod_arb_δ(1/next_tick_price, R[2], k, γ)
+                Δ[1] += prod_arb_δ(next_tick_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(1/next_tick_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/next_tick_price, R[1], k, γ)
-                Λ[2] += prod_arb_λ(next_tick_price, R[2], k, γ)
+                Λ[1] += prod_arb_λ(1/next_tick_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(next_tick_price, R[2], k, 1)
             end
             i += 1
         end
@@ -275,11 +266,11 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
                 R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 1]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 k = R[1]*R[2]
                 
-                Δ[1] += prod_arb_δ(target_price, R[1], k, γ)
-                Δ[2] += prod_arb_δ(1/target_price, R[2], k, γ)
+                Δ[1] += prod_arb_δ(target_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(1/target_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/target_price, R[1], k, γ)
-                Λ[2] += prod_arb_λ(target_price, R[2], k, γ)
+                Λ[1] += prod_arb_λ(1/target_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(target_price, R[2], k, 1)
 
                 break
 
@@ -287,15 +278,17 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
                 R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 1]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 k = R[1]*R[2]
 
-                Δ[1] += prod_arb_δ(prev_tick_price, R[1], k, γ)
-                Δ[2] += prod_arb_δ(1/prev_tick_price, R[2], k, γ)
+                Δ[1] += prod_arb_δ(prev_tick_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(1/prev_tick_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/prev_tick_price, R[1], k, γ)
-                Λ[2] += prod_arb_λ(prev_tick_price, R[2], k, γ)
+                Λ[1] += prod_arb_λ(1/prev_tick_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(prev_tick_price, R[2], k, 1)
             end
             i += 1
         end
     end
+    Δ = Δ ./ γ
+    Λ = Λ ./ γ
     return nothing
 end
 

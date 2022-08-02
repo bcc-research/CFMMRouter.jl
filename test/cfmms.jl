@@ -1,5 +1,9 @@
 init_opt_cache(R) = (R⁺=similar(R), ∇ϕR = similar(R))
 
+function returnsTrue()
+    return true
+end
+
 function optimality_conditions_met(c, Δ, Λ, cfmm; cache=nothing)
     R, γ = cfmm.R, cfmm.γ
     if isnothing(cache)
@@ -20,6 +24,7 @@ function optimality_conditions_met(c, Δ, Λ, cfmm; cache=nothing)
     opt = maximum(i -> γ * ∇ϕR[i] / c[i], 1:n) ≤ minimum(i -> ∇ϕR[i] / c[i], 1:n) + sqrt(eps())
     return pfeas && cfmm_sat && opt
 end
+
 @testset "CFMMs" begin
 @testset "arbitrage checks: two coins" begin
     Δ = MVector{2, Float64}(undef)
@@ -69,6 +74,84 @@ end
             find_arb!(Δ, Λ, cfmm, ν)
             @test optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
         end
+    end
+
+    @testset "univ3" begin
+        #reserves dont matter for univ3 pools, only tick data so just setting to 1
+        R = [1,1]
+        #no fees for now
+        γ = 1
+        # 
+        ids = [1,2]
+        current_price = 15
+        current_tick_index = 2
+        ticks = [Dict("price" => 5, "liquidity => 1"), Dict("price" => 10, "liquidity" => 2), Dict("price" => 20, "liquidity" => 1)]
+        cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+        
+        Δ = [0,0]
+        Λ = [0,0]
+        v = [1,15]
+        find_arb!(Δ,Λ,cfmm,v)
+        @test true
+        @test true
+        
+        current_price = 15
+        current_tick_index = 2
+        ticks = [Dict("price" => 5, "liquidity => 1"), Dict("price" => 10, "liquidity" => 2), Dict("price" => 20, "liquidity" => 1)]
+        cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+        
+        Δ = [0,0]
+        Λ = [0,0]
+        v = [1,15]
+        find_arb!(Δ,Λ,cfmm,v)
+        @test true
+
+
+        current_price = 15
+        current_tick_index = 2
+        ticks = [Dict("price" => 5, "liquidity => 1"), Dict("price" => 10, "liquidity" => 2), Dict("price" => 20, "liquidity" => 1)]
+        cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+        
+        Δ = [0,0]
+        Λ = [0,0]
+        v = [1,15]
+        find_arb!(Δ,Λ,cfmm,v)
+        @test returnsTrue()
+
+
+        current_price = 15
+        current_tick_index = 2
+        ticks = [Dict("price" => 5, "liquidity => 1"), Dict("price" => 10, "liquidity" => 2), Dict("price" => 20, "liquidity" => 1)]
+        cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+        
+        Δ = [0,0]
+        Λ = [0,0]
+        v = [1,15]
+        find_arb!(Δ,Λ,cfmm,v)
+        @test true
+
+
+        current_price = 15
+        current_tick_index = 2
+        ticks = [Dict("price" => 5, "liquidity => 1"), Dict("price" => 10, "liquidity" => 2), Dict("price" => 20, "liquidity" => 1)]
+        cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+        
+        Δ = [0,0]
+        Λ = [0,0]
+        v = [1,15]
+        find_arb!(Δ,Λ,cfmm,v)
+        @test true
+
+        current_price = 15
+        current_tick_index = 2
+        ticks = [Dict("price" => 5, "liquidity => 1"), Dict("price" => 10, "liquidity" => 2), Dict("price" => 20, "liquidity" => 1)]
+        cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+        
+        Δ = [0,0]
+        Λ = [0,0]
+        v = [1,15]
+        find_arb!(Δ,Λ,cfmm,v)
+        @test true
     end
 end
 
