@@ -226,33 +226,35 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
     Λ[1] = 0
     Λ[2] = 0
 
-    target_price = v[2]/v[1]/γ
+    target_price = max(min(v[1]/v[2]/γ,2.0^64),1/2.0^64) #including out of bounds check here
 
     if target_price >= current_price #iterate forwards in the tick mapping
         i = 1
         while true
             next_tick_price = ticks[current_tick_index + i]["price"]
-            if next_tick_price > target_price ## so now we know that current_price <= target_price < next_tick_price
+            if next_tick_price >= target_price ## so now we know that current_price <= target_price < next_tick_price
+                #print(max(current_price,ticks[current_tick_index + i - 1]["price"]))
                 R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
+                #print(R[2]/R[1])
                 k = R[1]*R[2]
 
-                Δ[1] += prod_arb_δ(target_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(1/target_price, R[2], k, 1)
+                Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(target_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/target_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(target_price, R[2], k, 1)
+                Λ[1] += prod_arb_λ(target_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(1/target_price, R[2], k, 1)
 
                 break
 
-            elseif next_tick_price <= target_price ## so now we know that current_price <= next_tick_price <= target_price
+            elseif next_tick_price < target_price ## so now we know that current_price <= next_tick_price <= target_price
                 R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
                 k = R[1]*R[2]
 
-                Δ[1] += prod_arb_δ(next_tick_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(1/next_tick_price, R[2], k, 1)
+                Δ[1] += prod_arb_δ(1/next_tick_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(next_tick_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/next_tick_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(next_tick_price, R[2], k, 1)
+                Λ[1] += prod_arb_λ(next_tick_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(1/next_tick_price, R[2], k, 1)
             end
             i += 1
         end
@@ -260,29 +262,31 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
     elseif target_price < current_price #iterate backwards in the tick mapping
         i = 1
         while true
-            prev_tick_price = ticks[current_tick_index - i]["price"]
-            if prev_tick_price < target_price ## so now we know that prev_tick_price < target_price <=  current_price
+            prev_tick_price = ticks[current_tick_index - i + 1]["price"]
+            if prev_tick_price <= target_price ## so now we know that prev_tick_price < target_price <=  current_price
 
-                R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 1]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
+                print(ticks[current_tick_index - i + 2]["price"])
+                R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 k = R[1]*R[2]
                 
-                Δ[1] += prod_arb_δ(target_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(1/target_price, R[2], k, 1)
+                Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(target_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/target_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(target_price, R[2], k, 1)
+                Λ[1] += prod_arb_λ(target_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(1/target_price, R[2], k, 1)
 
                 break
 
-            elseif prev_tick_price <= target_price ## so now we know that current_price <= next_tick_price <= target_price
-                R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 1]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
+            elseif prev_tick_price > target_price ## so now we know that current_price <= next_tick_price <= target_price
+
+                R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 k = R[1]*R[2]
 
-                Δ[1] += prod_arb_δ(prev_tick_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(1/prev_tick_price, R[2], k, 1)
+                Δ[1] += prod_arb_δ(1/prev_tick_price, R[1], k, 1)
+                Δ[2] += prod_arb_δ(prev_tick_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(1/prev_tick_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(prev_tick_price, R[2], k, 1)
+                Λ[1] += prod_arb_λ(prev_tick_price, R[1], k, 1)
+                Λ[2] += prod_arb_λ(1/prev_tick_price, R[2], k, 1)
             end
             i += 1
         end
