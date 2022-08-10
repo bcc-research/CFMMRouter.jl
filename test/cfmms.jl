@@ -84,7 +84,7 @@ end
     # #reserves dont matter for univ3 pools, only tick data so just setting to 1
     R = [1.0,1.0]
     # #no fees for now
-    γ = 1
+    γ = .997
     # # 
     ids = [1.0,2.0]
     current_price = 15.0
