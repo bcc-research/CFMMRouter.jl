@@ -136,7 +136,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::ProductTwoCoin{T}, v::VT) where {T, VT<
 end
 
 @doc raw"""
-    GeometricMeanTwoCoin(R, γ, idx, w)
+    GeometricMeanTwoCoin(R, w, γ, idx)
 
 Creates a two coin geometric mean CFMM with coins `idx[1]` and `idx[2]`, 
 reserves `R`, fee `γ`, and weights `w` such that `w[1] + w[2] == 1.0`.
