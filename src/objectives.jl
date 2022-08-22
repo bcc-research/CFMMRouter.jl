@@ -127,7 +127,7 @@ end
     return ret
 end
 
-@inline function upper_limit(o::SwapObjective{T}) where {T}
+@inline function upper_limit(o::BasketLiquidation{T}) where {T}
     ret = o.Δin
     ret[o.i] = convert(T, Inf)
     return ret
