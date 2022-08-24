@@ -1,5 +1,6 @@
 export CFMM, ProductTwoCoin, GeometricMeanTwoCoin, UniV3
 export find_arb!
+export update_reserves!
 
 abstract type CFMM{T} end
 
@@ -192,7 +193,15 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::GeometricMeanTwoCoin{T}, v::VT) where {
 end
 
 
-struct UniV3{T} <: CFMM{T}
+#The price in each tick refers to the lower bound on the interval
+#so the intervals are [t_i,t_i+1] with liquidity L_i
+#         p2---------
+# p1------     |     p3-------
+#   |          |         |
+#   L1         L2        L3
+#   |          |         | 
+
+mutable struct UniV3{T} <: CFMM{T}
     @add_two_coin_fields
     current_price :: T
     current_tick_index :: Int #This is the index of the maximal tick with price lower than current_price in the ticks dictionary
@@ -215,7 +224,7 @@ function virtual_reserves(P,L)
     sP = sqrt(P)
     x = L/sP
     y = L*sP
-    return([x, y])
+    return x,y
 end
 
 function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:AbstractVector{T}} 
@@ -237,9 +246,11 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
         while true
             next_tick_price = ticks[current_tick_index + i]["price"]
             if next_tick_price >= target_price ## so now we know that current_price <= target_price < next_tick_price
-                #print(max(current_price,ticks[current_tick_index + i - 1]["price"]))
-                R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
-                #print(R[2]/R[1])
+                R = virtual_reserves(
+                    max(current_price,ticks[current_tick_index + i - 1]["price"]),
+                    ticks[current_tick_index + i - 1]["liquidity"]
+                    )
+
                 k = R[1]*R[2]
 
                 Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
@@ -269,7 +280,6 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
             prev_tick_price = ticks[current_tick_index - i + 1]["price"]
             if prev_tick_price <= target_price ## so now we know that prev_tick_price < target_price <=  current_price
 
-                print(ticks[current_tick_index - i + 2]["price"])
                 R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 k = R[1]*R[2]
                 
@@ -300,3 +310,23 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
     return nothing
 end
 
+function update_reserves!(c :: CFMM, Δ, Λ, V)
+    c.R .+= Δ - Λ
+end
+
+function update_reserves!(c :: UniV3, Δ, Λ, V)
+    c.R .+= Δ - Λ #update reserves
+
+    if any(Δ .!= 0) || any(Λ .!= 0) #current_tick & current_price only if outside the no arb interval
+        target_price = V[1]/V[2]
+        c.current_price = target_price
+
+        #there are much more efficient ways to do this e.g. binary search but this should work for now
+        for i in eachindex(c.ticks)
+            if (c.ticks[i]["price"]<= c.current_price) & (c.current_price < c.ticks[i+1]["price"])
+                c.current_tick_index = i
+                break
+            end
+        end
+    end
+end

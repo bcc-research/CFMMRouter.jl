@@ -89,7 +89,13 @@ end
     ids = [1.0,2.0]
     current_price = 15.0
     current_tick_index = 3.0
-    ticks = [Dict("price" => 1/2.0^64, "liquidity" => 0.0),Dict("price" => 5.0, "liquidity" => 1.0), Dict("price" => 10.0, "liquidity" => 2.0), Dict("price" => 20.0, "liquidity" => 1.0), Dict("price" => 30.0, "liquidity" => 0.0), Dict("price" => 2.0^64, "liquidity" => 0)]
+    ticks = [Dict("price" => 1/2.0^64,"liquidity" => 0.0),
+             Dict("price" => 5.0,"liquidity" => 1.0),
+             Dict("price" => 10.0, "liquidity" => 2.0),
+             Dict("price" => 20.0, "liquidity" => 1.0),
+             Dict("price" => 30.0, "liquidity" => 0.0),
+             Dict("price" => 2.0^64, "liquidity" => 0)]
+
     cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
     
     Δ = [0.0,0.0]
@@ -112,7 +118,6 @@ end
     @test (Λ[1] > 0)  # positive token 0 out
     @test (Λ[2] == 0) # no token 1 out
     @test (16 <= Δ[2]/Λ[1]) && (Δ[2]/Λ[1] <= 17) #Average Price paid is between 16 and 17 
-
 
     # now we cross a tick going up 
 
@@ -214,5 +219,16 @@ end
 
     @test (9 <= Λ[2]/Δ[1]) && (Λ[2]/Δ[1] <= 10) #Average Price paid is between 13 and 14
 
-    
+
+    #update_reserves for univ3 test
+    Δ = [0.0,0.0]
+    Λ = [0.0,0.0]
+    v = [18.0,1.0]
+    find_arb!(Δ,Λ,cfmm,v)
+
+    update_reserves!(cfmm, Δ, Λ, v)
+
+    @test (cfmm.current_price == 18.0)
+    @test (cfmm.current_tick_index  == 3)
+
 end

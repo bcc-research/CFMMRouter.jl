@@ -127,8 +127,7 @@ end
 
 function update_reserves!(r::Router)
     for (Δ, Λ, c) in zip(r.Δs, r.Λs, r.cfmms)
-        c.R .+= Δ - Λ
+        update_reserves!(c, Δ,Λ,r.v[c.Ai])
     end
-
     return nothing
 end
