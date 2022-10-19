@@ -56,7 +56,7 @@ Solves the routing problem,
 ```
 Overwrites `r.Δs` and `r.Λs`.
 """
-function route!(r::R; v=nothing, verbose=false, m=5) where {R<:Router}
+function route!(r::R; v=nothing, verbose=false, m=5, factr=1e1, pgtol=1e-5, maxfun=15_000, maxiter=15_000) where {R<:Router}
     # Optimizer set up
     optimizer = L_BFGS_B(length(r.v), 17)
     if isnothing(v)
@@ -103,7 +103,7 @@ function route!(r::R; v=nothing, verbose=false, m=5) where {R<:Router}
     end
 
     find_arb!(r, r.v)
-    _, v = optimizer(fn, g!, r.v, bounds, m=m, factr=1e1, pgtol=1e-5, iprint=verbose ? 1 : -1, maxfun=15000, maxiter=15000)
+    _, v = optimizer(fn, g!, r.v, bounds, m=m, factr=factr, pgtol=pgtol, iprint=verbose ? 1 : -1, maxfun=maxfun, maxiter=maxiter)
     r.v .= v
     find_arb!(r, v)
 end
