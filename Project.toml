@@ -1,7 +1,7 @@
 name = "CFMMRouter"
 uuid = "591468fd-1d79-403f-bb2b-3ef7f4d90130"
 authors = ["Guillermo Angeris", "Theo Diamandis"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
