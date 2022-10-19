@@ -94,7 +94,7 @@ struct BasketLiquidation{T} <: Objective
     Δin::Vector{T}
     
     function BasketLiquidation(i::Integer, Δin::Vector{T}) where {T<:AbstractFloat}
-        !(i > 0 && i < length(Δin)) && throw(ArgumentError("Invalid index i"))
+        !(i > 0 && i <= length(Δin)) && throw(ArgumentError("Invalid index i"))
         return new{T}(
             i,
             Δin,
