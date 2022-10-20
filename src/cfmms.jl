@@ -291,7 +291,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
             end
             if prev_tick_price <= target_price ## so now we know that prev_tick_price < target_price <=  current_price
                 R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error in which case there is no liquid
+                try #it can happen that we are beyond the last tick and then this will have an indexing error in which case there is no liquidity
                     R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 catch
                     break
@@ -308,7 +308,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
 
             elseif prev_tick_price > target_price ## so now we know that current_price <= next_tick_price <= target_price
                 R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error 
+                try #it can happen that we are beyond the last tick and then this will have an indexing error error in which case there is no liquidity
                     R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 catch
                     break
