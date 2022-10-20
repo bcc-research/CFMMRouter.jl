@@ -325,7 +325,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
         end
     end
     #Δ = Δ ./ γ
-    Λ = Λ ./ γ
+    #Λ = Λ ./ γ
     return nothing
 end
 
