@@ -235,12 +235,11 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
     Λ[1] = 0
     Λ[2] = 0
 
-    #target_price = max(min(v[1]/v[2]/γ,2.0^64),1/2.0^64) #including out of bounds check here
     target_price = v[1]/v[2]
-    if (target_price*γ < current_price) && (current_price < target_price * 1/(γ))
-        return nothing
-    end
-    target_price = target_price/γ
+    # if (current_price*γ < target_price) && (target_price < current_price * 1/(γ))
+    #     return nothing
+    # end
+    #target_price = target_price/γ
     if target_price >= current_price #iterate forwards in the tick mapping
         i = 1
         while true
@@ -292,7 +291,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
             end
             if prev_tick_price <= target_price ## so now we know that prev_tick_price < target_price <=  current_price
                 R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error in which case there is no liquidity
+                try #it can happen that we are beyond the last tick and then this will have an indexing error in which case there is no liquid
                     R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 catch
                     break
@@ -309,7 +308,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
 
             elseif prev_tick_price > target_price ## so now we know that current_price <= next_tick_price <= target_price
                 R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error error in which case there is no liquidity
+                try #it can happen that we are beyond the last tick and then this will have an indexing error 
                     R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
                 catch
                     break
@@ -325,8 +324,8 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:Abstract
             i += 1
         end
     end
-    Δ = Δ ./ γ
-    Λ = Λ ./ γ
+    #Δ = Δ ./ γ
+    #Λ = Λ ./ γ
     return nothing
 end
 
