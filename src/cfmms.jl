@@ -202,151 +202,47 @@ end
 #   |          |         | 
 
 mutable struct UniV3{T} <: CFMM{T}
-    @add_two_coin_fields
-    current_price :: T
-    current_tick_index :: Int #This is the index of the maximal tick with price lower than current_price in the ticks dictionary
-    ticks #This is the tick mapping sorted by price
-    function UniV3(R,γ,idx,current_price,current_tick_index,ticks)
-        γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
-        return new{T}(
-            MVector{2,T}(R),
-            γ_T,
-            MVector{2,UInt}(idx_uint),
-            current_price,
-            current_tick_index,
-            ticks
-        )
+    current_price::T
+    current_tick::Int
+    lower_ticks::Vector{T}
+    liquidity::Vector{T}
+    γ::T
+    Ai::Vector{Int}
+end
+
+tick_high_price(cfmm::UniV3{T}) where T = cfmm.lower_ticks[cfmm.current_tick]
+
+function tick_low_price(cfmm::UniV3{T}) where T
+    if cfmm.current_tick < length(cfmm.lower_ticks) 
+        return cfmm.lower_ticks[cfmm.current_tick + 1]
     end
+    return zero(T)
 end
 
-## See univ3 whitepaper
-function virtual_reserves(P,L)
-    sP = sqrt(P)
-    x = L/sP
-    y = L*sP
-    return x,y
-end
+function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
+    # Construct reserves at current tick
+    k = cfmm.liquidity[cfmm.current_tick]
+    α = sqrt(k/tick_high_price(cfmm))
+    β = sqrt(k*tick_low_price(cfmm))
+    R_1 = sqrt(k/cfmm.current_price) - α
+    R_2 = k/(R_1 + α) - β
 
-function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:AbstractVector{T}} 
-    current_price, current_tick_index, γ, ticks = cfmm.current_price, cfmm.current_tick_index, cfmm.γ, cfmm.ticks
-    Δ[1] = 0
-    Δ[2] = 0
+    γ = cfmm.γ
 
-    Λ[1] = 0
-    Λ[2] = 0
-
-    #target_price = max(min(v[1]/v[2]/γ,2.0^64),1/2.0^64) #including out of bounds check here
-    target_price = v[1]/v[2]
-    if (target_price*γ < current_price) && (current_price < target_price * 1/(γ))
-        return nothing
-    end
-    target_price = target_price/γ
-    if target_price >= current_price #iterate forwards in the tick mapping
-        i = 1
-        while true
-            next_tick_price = 0.0
-            try
-                next_tick_price = ticks[current_tick_index + i]["price"]
-            catch
-                ## Ran out of liquidity
-                break
+    if Δ[1] > 0
+        δ = γ*Δ[1]
+        curr_idx = cfmm.current_tick
+        λ = 0.0
+        while curr_idx <= length(cfmm.lower_ticks)
+            # Compute max amount that can be traded at current tick
+            max_amount = (R_1 + α)*R_2/β
+            if max_amount > δ
+                λ += γ*δ*(R_2 + β)/(R_1 + α + δ)
+                return λ
             end
-            if next_tick_price >= target_price ## so now we know that current_price <= target_price < next_tick_price
-                R = virtual_reserves(
-                    max(current_price,ticks[current_tick_index + i - 1]["price"]),
-                    ticks[current_tick_index + i - 1]["liquidity"]
-                    )
-
-                k = R[1]*R[2]
-
-                Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(target_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(target_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/target_price, R[2], k, 1)
-
-                break
-
-            elseif next_tick_price < target_price ## so now we know that current_price <= next_tick_price <= target_price
-                R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
-                k = R[1]*R[2]
-
-                Δ[1] += prod_arb_δ(1/next_tick_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(next_tick_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(next_tick_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/next_tick_price, R[2], k, 1)
-            end
-            i += 1
+            δ -= max_amount
         end
-
-    elseif target_price < current_price #iterate backwards in the tick mapping
-        i = 1
-        while true
-            prev_tick_price = 0.0
-            try
-                prev_tick_price = ticks[current_tick_index - i + 1]["price"]
-            catch 
-                # Ran out of liquidity
-               break
-            end
-            if prev_tick_price <= target_price ## so now we know that prev_tick_price < target_price <=  current_price
-                R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error in which case there is no liquidity
-                    R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
-                catch
-                    break
-                end
-                k = R[1]*R[2]
-                
-                Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(target_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(target_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/target_price, R[2], k, 1)
-
-                break
-
-            elseif prev_tick_price > target_price ## so now we know that current_price <= next_tick_price <= target_price
-                R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error error in which case there is no liquidity
-                    R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
-                catch
-                    break
-                end
-                k = R[1]*R[2]
-
-                Δ[1] += prod_arb_δ(1/prev_tick_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(prev_tick_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(prev_tick_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/prev_tick_price, R[2], k, 1)
-            end
-            i += 1
-        end
-    end
-    Δ = Δ ./ γ
-    Λ = Λ ./ γ
-    return nothing
-end
-
-function update_reserves!(c :: CFMM, Δ, Λ, V)
-    c.R .+= Δ - Λ
-end
-
-function update_reserves!(c :: UniV3, Δ, Λ, V)
-    c.R .+= Δ - Λ #update reserves
-
-    if any(Δ .!= 0) || any(Λ .!= 0) #current_tick & current_price only if outside the no arb interval
-        target_price = V[1]/V[2]
-        c.current_price = target_price
-
-        #there are much more efficient ways to do this e.g. binary search but this should work for now
-        for i in eachindex(c.ticks)
-            if (c.ticks[i]["price"]<= c.current_price) & (c.current_price < c.ticks[i+1]["price"])
-                c.current_tick_index = i
-                break
-            end
-        end
+    else
+        @error "Not implemented yet"
     end
 end
