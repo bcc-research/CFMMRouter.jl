@@ -240,7 +240,7 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
             max_amount = (R_1 + α)*R_2/β
 
             if max_amount > δ
-                λ += γ*δ*(R_2 + β)/(R_1 + α + δ)
+                λ += δ*(R_2 + β)/(R_1 + α + δ)
                 return λ
             end
             # If not, add all reserves
@@ -253,6 +253,7 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
             R_2 = k/α - β
 
             δ -= max_amount
+            idx += 1
         end
 
         # We've exhausted all liquidity
@@ -260,4 +261,8 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
     else
         @error "Not implemented yet"
     end
+end
+
+function find_arb!(cfmm::UniV3, Δ::VT, Λ::VT, v::VT) where {T, VT<:AbstractVector{T}}
+
 end
