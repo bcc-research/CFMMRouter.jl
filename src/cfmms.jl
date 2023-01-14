@@ -221,48 +221,86 @@ function tick_low_price(cfmm::UniV3{T}, idx) where T
 end
 tick_low_price(cfmm) = tick_low_price(cfmm, cfmm.current_tick)
 
-function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
-    # Construct reserves at current tick
+struct BoundedProduct{T}
+    k::T
+    α::T
+    β::T
+    R_1::T
+    R_2::T
+end
+
+function compute_at_tick(cfmm::UniV3{T}, idx, price) where T
     k = cfmm.liquidity[cfmm.current_tick]
-    α = sqrt(k/tick_high_price(cfmm))
-    β = sqrt(k*tick_low_price(cfmm))
-    R_1 = sqrt(k/cfmm.current_price) - α
+    pminus = tick_low_price(cfmm, idx)
+    pplus = tick_high_price(cfmm, idx)
+    α = sqrt(k/pplus)
+    β = sqrt(k*pminus)
+    p = clamp(price, pminus, pplus)
+    R_1 = sqrt(k/p) - α
     R_2 = k/(R_1 + α) - β
 
+    return BoundedProduct{T}(k, α, β, R_1, R_2)
+end
+
+function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
+    # Construct reserves at current tick
+    t = compute_at_tick(cfmm, cfmm.current_tick, cfmm.current_price)
     γ = cfmm.γ
+
+    if iszero(Δ)
+        return 0.0
+    end
 
     if Δ[1] > 0
         δ = γ*Δ[1]
-        idx = cfmm.current_tick
         λ = 0.0
-        while idx <= length(cfmm.lower_ticks)
+        for idx in cfmm.current_tick:length(cfmm.lower_ticks)
             # Compute max amount that can be traded at current tick
-            max_amount = (R_1 + α)*R_2/β
+            max_amount = (t.R_1 + t.α)*t.R_2/t.β
 
             if max_amount > δ
-                λ += δ*(R_2 + β)/(R_1 + α + δ)
+                λ += δ*(t.R_2 + t.β)/(t.R_1 + t.α + δ)
                 return λ
             end
             # If not, add all reserves
-            λ += R_2
+            λ += t.R_2
 
             # Update all new values
-            α = sqrt(k/tick_high_price(cfmm, idx))
-            β = sqrt(k*tick_low_price(cfmm, idx))
-            R_1 = 0
-            R_2 = k/α - β
+            t = compute_at_tick(cfmm, idx, cfmm.current_price)
 
             δ -= max_amount
-            idx += 1
         end
 
         # We've exhausted all liquidity
         return λ
     else
-        @error "Not implemented yet"
+        error("Not implemented")
     end
 end
 
-function find_arb!(cfmm::UniV3, Δ::VT, Λ::VT, v::VT) where {T, VT<:AbstractVector{T}}
+function get_max_right(cfmm::UniV3, idx)
 
+end
+
+function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVector{T}}
+    p = v[1]/v[2]
+    γ = cfmm.γ
+    if γ*cfmm.current_price <= p <= cfmm.current_price/γ
+        return nothing
+    end
+
+    if p < γ*cfmm.current_price
+        p /= γ
+        δ, λ = 0.0, 0.0
+        for idx in cfmm.current_tick:length(cfmm.lower_ticks)
+            p_m = tick_low_price(cfmm, idx)
+            if p_m < p
+            end
+        end
+    else
+        error("Not implemented")
+    end
+
+
+    return nothing
 end
