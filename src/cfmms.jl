@@ -210,14 +210,16 @@ mutable struct UniV3{T} <: CFMM{T}
     Ai::Vector{Int}
 end
 
-tick_high_price(cfmm::UniV3{T}) where T = cfmm.lower_ticks[cfmm.current_tick]
+tick_high_price(cfmm::UniV3{T}, idx) where T = cfmm.lower_ticks[idx]
+tick_high_price(cfmm) = tick_high_price(cfmm, cfmm.current_tick)
 
-function tick_low_price(cfmm::UniV3{T}) where T
-    if cfmm.current_tick < length(cfmm.lower_ticks) 
-        return cfmm.lower_ticks[cfmm.current_tick + 1]
+function tick_low_price(cfmm::UniV3{T}, idx) where T
+    if idx < length(cfmm.lower_ticks) 
+        return cfmm.lower_ticks[idx + 1]
     end
     return zero(T)
 end
+tick_low_price(cfmm) = tick_low_price(cfmm, cfmm.current_tick)
 
 function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
     # Construct reserves at current tick
@@ -231,17 +233,30 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
 
     if Δ[1] > 0
         δ = γ*Δ[1]
-        curr_idx = cfmm.current_tick
+        idx = cfmm.current_tick
         λ = 0.0
-        while curr_idx <= length(cfmm.lower_ticks)
+        while idx <= length(cfmm.lower_ticks)
             # Compute max amount that can be traded at current tick
             max_amount = (R_1 + α)*R_2/β
+
             if max_amount > δ
                 λ += γ*δ*(R_2 + β)/(R_1 + α + δ)
                 return λ
             end
+            # If not, add all reserves
+            λ += R_2
+
+            # Update all new values
+            α = sqrt(k/tick_high_price(cfmm, idx))
+            β = sqrt(k*tick_low_price(cfmm, idx))
+            R_1 = 0
+            R_2 = k/α - β
+
             δ -= max_amount
         end
+
+        # We've exhausted all liquidity
+        return λ
     else
         @error "Not implemented yet"
     end
