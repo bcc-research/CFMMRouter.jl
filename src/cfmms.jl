@@ -260,7 +260,7 @@ function compute_at_tick(cfmm::UniV3{T}, idx) where T
     return BoundedProduct{T}(k, α, β, R_1, R_2)
 end
 
-# Returns (if the tick was saturated, δ, λ)
+# Returns ([if the tick was saturated], δ, λ)
 function find_arb_pos(t::BoundedProduct{T}, price) where T
     if iszero(t.k)
         return true, 0.0, 0.0
@@ -280,6 +280,55 @@ function find_arb_pos(t::BoundedProduct{T}, price) where T
 
     return false, δ, λ
 end
+
+# Flips the sides of a bounded product CFMM
+flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.R_2, t.R_1)
+
+function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVector{T}}
+    p = v[1]/v[2]
+    γ = cfmm.γ
+    if γ*cfmm.current_price <= p <= cfmm.current_price/γ
+        fill!(Δ, 0)
+        fill!(Λ, 0)
+        return nothing
+    end
+
+    if p < γ*cfmm.current_price
+        p /= γ
+        δ, λ = 0.0, 0.0
+        for idx in cfmm.current_tick:length(cfmm.lower_ticks)
+            t = compute_at_tick(cfmm, idx)
+            issat, δ_, λ_ = find_arb_pos(t, p)
+            δ += δ_
+            λ += λ_
+
+            if !issat
+                break
+            end
+        end
+        Δ .= δ/γ, 0
+        Λ .= 0, λ
+    else
+        p = γ/p
+        δ, λ = 0.0, 0.0
+        for idx in cfmm.current_tick:-1:1
+            t = flip_sides(compute_at_tick(cfmm, idx))
+            issat, δ_, λ_ = find_arb_pos(t, p)
+            δ += δ_
+            λ += λ_
+
+            if !issat
+                break
+            end
+        end
+        Δ .= 0, δ/γ
+        Λ .= λ, 0
+    end
+
+    return nothing
+end
+
+# --- Testing helper functions below
 
 # Compute max amount that can be traded at current tick
 max_amount_pos(t::BoundedProduct{T}) where T = (t.R_1 + t.α)*t.R_2/t.β
@@ -317,36 +366,4 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
     else
         error("Not implemented")
     end
-end
-
-function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVector{T}}
-    p = v[1]/v[2]
-    γ = cfmm.γ
-    if γ*cfmm.current_price <= p <= cfmm.current_price/γ
-        fill!(Δ, 0)
-        fill!(Λ, 0)
-        return nothing
-    end
-
-    if p < γ*cfmm.current_price
-        p /= γ
-        δ, λ = 0.0, 0.0
-        for idx in cfmm.current_tick:length(cfmm.lower_ticks)
-            t = compute_at_tick(cfmm, idx)
-            issat, δ_, λ_ = find_arb_pos(t, p)
-            δ += δ_
-            λ += λ_
-
-            if !issat
-                break
-            end
-        end
-        Δ .= δ/γ, 0
-        Λ .= 0, λ
-    else
-        error("Not implemented")
-    end
-
-
-    return nothing
 end
