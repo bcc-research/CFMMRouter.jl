@@ -265,7 +265,7 @@ function find_arb_pos(t::BoundedProduct{T}, price) where T
     if iszero(t.k)
         return true, 0.0, 0.0
     end
-    δ = sqrt(t.k/price) - t.R_1 - t.α
+    δ = sqrt(t.k/price) - (t.R_1 + t.α)
 
     if δ <= 0
         return true, 0.0, 0.0
@@ -276,7 +276,7 @@ function find_arb_pos(t::BoundedProduct{T}, price) where T
         return true, δ_max, t.R_2
     end
     
-    λ = t.R_2 + t.β - sqrt(price*t.k)
+    λ = (t.R_2 + t.β) - sqrt(price*t.k)
 
     return false, δ, λ
 end
@@ -331,9 +331,16 @@ end
 # --- Testing helper functions below
 
 # Compute max amount that can be traded at current tick
-max_amount_pos(t::BoundedProduct{T}) where T = (t.R_1 + t.α)*t.R_2/t.β
+function max_amount_pos(t::BoundedProduct{T}) where T 
+    if t.β > 0
+        return (t.R_1 + t.α)*t.R_2/t.β
+    elseif !iszero(t.α)
+        return typemax(T)
+    end
+    return 0.0
+end
 
-function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
+function forward_trade(Δ, cfmm::UniV3{T}) where {T}
     # Construct reserves at current tick
     t = compute_at_tick(cfmm, cfmm.current_tick)
     γ = cfmm.γ
@@ -367,7 +374,7 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
         δ = γ*Δ[2]
         λ = 0.0
         for idx in cfmm.current_tick:-1:1
-            max_amount = max_amount_pos(flip_sides(t))
+            @show max_amount = max_amount_pos(flip_sides(t))
 
             if max_amount > δ
                 λ += δ*(t.R_2 + t.β)/(t.R_1 + t.α + δ)
