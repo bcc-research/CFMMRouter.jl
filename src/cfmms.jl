@@ -341,7 +341,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
                 break
             end
         end
-        Δ .= δ, 0
+        Δ .= δ/γ, 0
         Λ .= 0, λ
     else
         error("Not implemented")
