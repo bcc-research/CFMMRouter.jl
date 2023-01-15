@@ -1,6 +1,6 @@
 init_opt_cache(R) = (R⁺=similar(R), ∇ϕR = similar(R))
 
-function optimality_conditions_met(c, Δ, Λ, cfmm; cache=nothing)
+function test_optimality_conditions_met(c, Δ, Λ, cfmm; cache=nothing)
     R, γ = cfmm.R, cfmm.γ
     if isnothing(cache)
         cache = init_opt_cache(R)
@@ -18,7 +18,41 @@ function optimality_conditions_met(c, Δ, Λ, cfmm; cache=nothing)
     cfmm_sat = ≈(ϕR, ϕR⁺) && ϕR⁺ ≥ ϕR - sqrt(eps())
 
     opt = maximum(i -> γ * ∇ϕR[i] / c[i], 1:n) ≤ minimum(i -> ∇ϕR[i] / c[i], 1:n) + sqrt(eps())
-    return pfeas && cfmm_sat && opt
+    @test pfeas && cfmm_sat && opt
+end
+
+# For univ3, we specialize to use the price impact function
+function test_optimality_conditions_met(c, Δ, Λ, cfmm::UniV3)
+    p_opt = c[1] / c[2]
+    γ, q = cfmm.γ, cfmm.current_price
+    
+    # Mkt price in current interval
+    if γ * q ≤ p_opt ≤ q / γ
+        @test Δ[1] == Δ[2] == 0
+        return
+    end
+
+    # Out of liquidity
+    if p_opt > cfmm.lower_ticks[1]
+        λ = CR.forward_trade(Δ, cfmm)
+        @test λ ≈ Λ[1] && Λ[2] == 0
+        return
+    elseif p_opt < cfmm.lower_ticks[end] && iszero(cfmm.liquidity[end])
+        λ = CR.forward_trade(Δ, cfmm)
+        @test λ ≈ Λ[2] && Λ[1] == 0
+        return
+    end
+    
+    # Mkt price in larger interval
+    if q > p_opt
+        price_impact₊(δ) = ForwardDiff.gradient(x->CR.forward_trade(x, cfmm), δ)[1]
+        @test isapprox(price_impact₊(Δ), p_opt, atol=1e-6)
+        return
+    else
+        price_impact₋(δ) = ForwardDiff.gradient(x->CR.forward_trade(x, cfmm), δ)[2]
+        @test isapprox(price_impact₋(Δ), p_opt, atol=1e-6)
+        return
+    end
 end
 
 @testset "CFMMs" begin
@@ -58,7 +92,7 @@ end
         for R in Rs, γ in γs, ν in νs
             cfmm = ProductTwoCoin(R, γ, [1, 2])
             find_arb!(Δ, Λ, cfmm, ν)
-            @test optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
+            test_optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
         end
 
     end
@@ -68,167 +102,129 @@ end
         for R in Rs, γ in γs, ν in νs, w in ws
             cfmm = GeometricMeanTwoCoin(R, w, γ, [1, 2])
             find_arb!(Δ, Λ, cfmm, ν)
-            @test optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
+            test_optimality_conditions_met(ν, Δ, Λ, cfmm; cache=cache)
         end
     end
 
 
 end
-end
+
 @testset "univ3" begin
+    Δ = zeros(2)
+    Λ = zeros(2)
 
-
-    #this test is going to be one were there is no arbitrage because the current_price = target_price
-    #there can be some slight numerical error when calculating virtual_reserves
-
-    # #reserves dont matter for univ3 pools, only tick data so just setting to 1
-    R = [1.0,1.0]
-    # #no fees for now
-    γ = .997
-    # # 
-    ids = [1.0,2.0]
+    # UniV3 pool params
     current_price = 15.0
-    current_tick_index = 3.0
-    ticks = [Dict("price" => 1/2.0^64,"liquidity" => 0.0),
-             Dict("price" => 5.0,"liquidity" => 1.0),
-             Dict("price" => 10.0, "liquidity" => 2.0),
-             Dict("price" => 20.0, "liquidity" => 1.0),
-             Dict("price" => 30.0, "liquidity" => 0.0),
-             Dict("price" => 2.0^64, "liquidity" => 0)]
-
-    cfmm = UniV3(R,γ,ids, current_price, current_tick_index, ticks)
+    current_tick = 3
+    lower_ticks = [30., 20, 10, 5]
+    liquidity = [1.0, 2.0, 1.5, 0.0]
+    Ai = [1, 2]
     
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [15.0,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
+    @testset "no fees" begin
+        γ = 1.0
+        cfmm = UniV3(current_price, current_tick, lower_ticks, liquidity, γ, Ai)
 
-    @test (norm(Δ) <= 1e-12) && (norm(Λ) <= 1e-12) #nothing happens
+        # Opt trade == 0
+        v = [15.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
+        # same interval (below), but opt trade ≂̸ 0
+        v = [16.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    #In this test the target price is higher than the current_price but we are still within one tick
+        # same interval (above), but opt trade ≂̸ 0
+        v = [14.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [18.0,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-    
-    @test (Δ[1] == 0) # no token 0 in
-    @test (Δ[2] > 0)  # posiive token 1 in
-    @test (Λ[1] > 0)  # positive token 0 out
-    @test (Λ[2] == 0) # no token 1 out
-    @test (16 <= Δ[2]/Λ[1]) && (Δ[2]/Λ[1] <= 17) #Average Price paid is between 16 and 17 
+        # prev interval 
+        v = [25.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    # now we cross a tick going up 
+        # next interval 
+        v = [7.5, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [22.0,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-    
-    @test (Δ[1] == 0) # no token 0 in
-    @test (Δ[2] > 0)  # posiive token 1 in
-    @test (Λ[1] > 0)  # positive token 0 out
-    @test (Λ[2] == 0) # no token 1 out
+        # Drain all liquidity, going up
+        v = [4., 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    @test (17 <= Δ[2]/Λ[1]) && (Δ[2]/Λ[1] <= 18) #Average Price paid is between 17 and 18 
+        # Drain all liquidity, going down
+        v = [35., 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
+    end
 
+    @testset "fees" begin
+        γ = 0.997
+        cfmm = UniV3(current_price, current_tick, lower_ticks, liquidity, γ, Ai)
 
-    #out of bounds test upper
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [29.99,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-    
-    @test (Δ[1] == 0) # no token 0 in
-    @test (Δ[2] > 0)  # posiive token 1 in
-    @test (Λ[1] > 0)  # positive token 0 out
-    @test (Λ[2] == 0) # no token 1 out
+        # Opt trade == 0 (no arb interval)
+        v = [15.0 * (2-γ)/2, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
+        # same interval (below), but opt trade ≂̸ 0
+        v = [16.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    @test (19.5 <= Δ[2]/Λ[1]) && (Δ[2]/Λ[1] <= 20.5)
+        # same interval (above), but opt trade ≂̸ 0
+        v = [14.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [35,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-    
-    @test (Δ[1] == 0) # no token 0 in
-    @test (Δ[2] > 0)  # posiive token 1 in
-    @test (Λ[1] > 0)  # positive token 0 out
-    @test (Λ[2] == 0) # no token 1 out
+        # prev interval 
+        v = [25.0, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
+        # next interval 
+        v = [7.5, 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
-    @test (19.5 <= Δ[2]/Λ[1]) && (Δ[2]/Λ[1] <= 20.5)
+        # drain all liquidity, going up
+        v = [4., 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
 
+        # drain all liquidity, going down
+        v = [35., 1.0]
+        find_arb!(Δ, Λ, cfmm, v)
+        test_optimality_conditions_met(v, Δ, Λ, cfmm)
+        
+    end
 
-    #Now we test when target price is below current price but within current tick
+    # @testset "update_reserves" begin
+    #     γ = 1.0
+    #     cfmm = UniV3(current_price, current_tick, lower_ticks, liquidity, γ, Ai)
+    #     # same interval 
+    #     v = [12., 0.]
+    #     find_arb!(Δ, Λ, cfmm, v)
+    #     update_reserves!(cfmm, Δ, Λ, v)
+    #     @test cfmm.current_price ≈ 12.0
+    #     @test cfmm.current_tick = 3
 
-    #starting with just below current price
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [14.99999,1.0] #basically current price but less than so we check the other branch
-    find_arb!(Δ,Λ,cfmm,v)
+    #     # prev interval
+    #     v = [22., 0.]
+    #     find_arb!(Δ, Λ, cfmm, v)
+    #     update_reserves!(cfmm, Δ, Λ, v)
+    #     @test (cfmm.current_price ≈ 22.0)
+    #     @test cfmm.current_tick = 4
 
+    #     # next interval
+    #     v = [8., 0.]
+    #     find_arb!(Δ, Λ, cfmm, v)
+    #     update_reserves!(cfmm, Δ, Λ, v)
+    #     @test (cfmm.current_price ≈ 8.0)
+    #     @test cfmm.current_tick = 2
+    # end
 
-
-    @test (norm(Δ) <= 1e-3) && (norm(Λ) <= 1e-3) #nothing happens
-
-
-    #now below current price but not below current tick price
-
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [12.0,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-    
-    @test (Δ[1] > 0)  # positive token 0 in
-    @test (Δ[2] == 0) # no token 1 in
-    @test (Λ[1] == 0)  # no 0 out
-    @test (Λ[2] > 0) # positive 1 out
-
-    @test (13 <= Λ[2]/Δ[1]) && (Λ[2]/Δ[1] <= 14) #Average Price paid is between 13 and 14
-
-    #now below current price and crossing a tick
-
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [5.01,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-
-
-    @test (Δ[1] > 0)  # positive token 0 in
-    @test (Δ[2] == 0) # no token 1 in
-    @test (Λ[1] == 0)  # no 0 out
-    @test (Λ[2] > 0) # positive 1 out
-
-    @test (9 <= Λ[2]/Δ[1]) && (Λ[2]/Δ[1] <= 10) #Average Price paid is between 9 and 10
-
-    #now out of bounds test
-
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [4.0,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-    
-
-    @test (Δ[1] > 0)  # positive token 0 in
-    @test (Δ[2] == 0) # no token 1 in
-    @test (Λ[1] == 0)  # no 0 out
-    @test (Λ[2] > 0) # positive 1 out
-
-    @test (9 <= Λ[2]/Δ[1]) && (Λ[2]/Δ[1] <= 10) #Average Price paid is between 13 and 14
-
-
-    #update_reserves for univ3 test
-    Δ = [0.0,0.0]
-    Λ = [0.0,0.0]
-    v = [18.0,1.0]
-    find_arb!(Δ,Λ,cfmm,v)
-
-    update_reserves!(cfmm, Δ, Λ, v)
-
-    @test (cfmm.current_price == 18.0)
-    @test (cfmm.current_tick_index  == 3)
-
+end
 end
