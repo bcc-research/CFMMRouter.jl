@@ -309,7 +309,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
         Δ .= δ/γ, 0
         Λ .= 0, λ
     else
-        p = γ/p
+        p = 1/(γ*p)
         δ, λ = 0.0, 0.0
         for idx in cfmm.current_tick:-1:1
             t = flip_sides(compute_at_tick(cfmm, idx))
@@ -364,6 +364,25 @@ function forward_trade(Δ::VT, cfmm::UniV3{T}) where {T, VT<:AbstractVector{T}}
         # We've exhausted all liquidity
         return λ
     else
-        error("Not implemented")
+        δ = γ*Δ[2]
+        λ = 0.0
+        for idx in cfmm.current_tick:-1:1
+            max_amount = max_amount_pos(flip_sides(t))
+
+            if max_amount > δ
+                λ += δ*(t.R_2 + t.β)/(t.R_1 + t.α + δ)
+                return λ
+            end
+            # If not, add all reserves
+            λ += t.R_2
+
+            # Update all new values
+            t = compute_at_tick(cfmm, idx)
+
+            δ -= max_amount
+        end
+
+        # We've exhausted all liquidity
+        return λ
     end
 end
