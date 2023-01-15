@@ -263,7 +263,7 @@ end
 # Returns (if the tick was saturated, δ, λ)
 function find_arb_pos(t::BoundedProduct{T}, price) where T
     if iszero(t.k)
-        return false, 0.0, 0.0
+        return true, 0.0, 0.0
     end
     δ = sqrt(t.k/price) - t.R_1 - t.α
 
