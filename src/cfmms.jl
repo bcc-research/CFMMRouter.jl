@@ -334,7 +334,7 @@ end
 function max_amount_pos(t::BoundedProduct{T}) where T 
     if t.β > 0
         return (t.R_1 + t.α)*t.R_2/t.β
-    elseif !iszero(t.α)
+    elseif t.α > 0
         return typemax(T)
     end
     return 0.0
@@ -342,7 +342,6 @@ end
 
 function forward_trade(Δ, cfmm::UniV3{T}) where {T}
     # Construct reserves at current tick
-    t = compute_at_tick(cfmm, cfmm.current_tick)
     γ = cfmm.γ
 
     if iszero(Δ)
@@ -353,6 +352,7 @@ function forward_trade(Δ, cfmm::UniV3{T}) where {T}
         δ = γ*Δ[1]
         λ = 0.0
         for idx in cfmm.current_tick:length(cfmm.lower_ticks)
+            t = compute_at_tick(cfmm, idx)
             max_amount = max_amount_pos(t)
 
             if max_amount > δ
@@ -361,9 +361,6 @@ function forward_trade(Δ, cfmm::UniV3{T}) where {T}
             end
             # If not, add all reserves
             λ += t.R_2
-
-            # Update all new values
-            t = compute_at_tick(cfmm, idx)
 
             δ -= max_amount
         end
@@ -374,7 +371,8 @@ function forward_trade(Δ, cfmm::UniV3{T}) where {T}
         δ = γ*Δ[2]
         λ = 0.0
         for idx in cfmm.current_tick:-1:1
-            @show max_amount = max_amount_pos(flip_sides(t))
+            t = compute_at_tick(cfmm, idx)
+            max_amount = max_amount_pos(flip_sides(t))
 
             if max_amount > δ
                 λ += δ*(t.R_2 + t.β)/(t.R_1 + t.α + δ)
@@ -382,9 +380,6 @@ function forward_trade(Δ, cfmm::UniV3{T}) where {T}
             end
             # If not, add all reserves
             λ += t.R_2
-
-            # Update all new values
-            t = compute_at_tick(cfmm, idx)
 
             δ -= max_amount
         end
