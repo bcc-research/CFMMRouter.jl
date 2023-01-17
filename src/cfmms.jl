@@ -260,25 +260,29 @@ function compute_at_tick(cfmm::UniV3{T}, idx) where T
     return BoundedProduct{T}(k, α, β, R_1, R_2)
 end
 
-# Returns ([if the tick was saturated], δ, λ)
+# Lazy maps
+get_upper_pools(cfmm::UniV3{T}) where T = (compute_at_tick(cfmm, i) for i in cfmm.current_tick:length(cfmm.lower_ticks))
+get_lower_pools(cfmm::UniV3{T}) where T = (compute_at_tick(cfmm, i) for i in cfmm.current_tick:-1:1)
+
+# Considers fee-free arb in the (easy) case that the price is above the current price
 function find_arb_pos(t::BoundedProduct{T}, price) where T
     if iszero(t.k)
-        return true, 0.0, 0.0
+        return 0.0, 0.0
     end
     δ = sqrt(t.k/price) - (t.R_1 + t.α)
 
     if δ <= 0
-        return true, 0.0, 0.0
+        return 0.0, 0.0
     end
 
     δ_max = (t.R_1 + t.α)*(t.R_2/t.β) 
     if δ >= δ_max
-        return true, δ_max, t.R_2
+        return δ_max, t.R_2
     end
     
     λ = (t.R_2 + t.β) - sqrt(price*t.k)
 
-    return false, δ, λ
+    return δ, λ
 end
 
 # Flips the sides of a bounded product CFMM
@@ -287,42 +291,37 @@ flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.
 function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVector{T}}
     p = v[1]/v[2]
     γ = cfmm.γ
+
+    fill!(Δ, 0)
+    fill!(Λ, 0)
+
+    # No-arb interval
     if γ*cfmm.current_price <= p <= cfmm.current_price/γ
-        fill!(Δ, 0)
-        fill!(Λ, 0)
         return nothing
     end
 
     if p < γ*cfmm.current_price
-        p /= γ
-        δ, λ = 0.0, 0.0
-        for idx in cfmm.current_tick:length(cfmm.lower_ticks)
-            t = compute_at_tick(cfmm, idx)
-            issat, δ_, λ_ = find_arb_pos(t, p)
-            δ += δ_
-            λ += λ_
-
-            if !issat
-                break
+        for pool in get_upper_pools(cfmm)
+            δ, λ = find_arb_pos(pool, p)
+            # If either is zero, the other is numerically imprecise
+            if iszero(δ) || iszero(λ)
+                return
             end
+            Δ[1] += δ
+            Λ[2] += λ
         end
-        Δ .= δ/γ, 0
-        Λ .= 0, λ
+        Δ[1] /= γ
     else
-        p = 1/(γ*p)
-        δ, λ = 0.0, 0.0
-        for idx in cfmm.current_tick:-1:1
-            t = flip_sides(compute_at_tick(cfmm, idx))
-            issat, δ_, λ_ = find_arb_pos(t, p)
-            δ += δ_
-            λ += λ_
-
-            if !issat
-                break
+        for pool in flip_sides.(get_upper_pools(cfmm))
+            δ, λ = find_arb_pos(pool, 1/p)
+            # If either is zero, the other is numerically imprecise
+            if iszero(δ) || iszero(λ)
+                return
             end
+            Δ[2] += δ
+            Λ[1] += λ
         end
-        Δ .= 0, δ/γ
-        Λ .= λ, 0
+        Δ[2] /= γ
     end
 
     return nothing
