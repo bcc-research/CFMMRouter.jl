@@ -233,6 +233,12 @@ max_price(t::BoundedProduct{T}) where T = t.k/(t.α^2)
 min_price(t::BoundedProduct{T}) where T = (t.β^2)/t.k
 curr_price(t::BoundedProduct{T}) where T = (t.R_2 + t.β)/(t.R_1 + t.α)
 
+is_empty_pool(t::BoundedProduct{T}) where T = iszero(t.k)
+
+# Flips the sides of a bounded product CFMM
+flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.R_2, t.R_1)
+
+
 # Computes the properties of a specific tick (which is just a bounded product
 # CFMM) at the specified index
 function compute_at_tick(cfmm::UniV3{T}, idx) where T
@@ -264,11 +270,9 @@ end
 get_upper_pools(cfmm::UniV3{T}) where T = (compute_at_tick(cfmm, i) for i in cfmm.current_tick:length(cfmm.lower_ticks))
 get_lower_pools(cfmm::UniV3{T}) where T = (compute_at_tick(cfmm, i) for i in cfmm.current_tick:-1:1)
 
-# Considers fee-free arb in the (easy) case that the price is above the current price
+# Considers fee-free arb in the (easy) case that the price is above the current price.
+# (This is enough since we can just swap the reserves and constants and re-solve the problem.)
 function find_arb_pos(t::BoundedProduct{T}, price) where T
-    if iszero(t.k)
-        return 0.0, 0.0
-    end
     δ = sqrt(t.k/price) - (t.R_1 + t.α)
 
     if δ <= 0
@@ -284,9 +288,6 @@ function find_arb_pos(t::BoundedProduct{T}, price) where T
 
     return δ, λ
 end
-
-# Flips the sides of a bounded product CFMM
-flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.R_2, t.R_1)
 
 function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVector{T}}
     p = v[1]/v[2]
@@ -304,7 +305,12 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
     if p < γ*cfmm.current_price
         initial = true
         for pool in get_upper_pools(cfmm)
-            δ, λ = find_arb_pos(pool, γ*p)
+            if is_empty_pool(pool)
+                initial = false
+                continue
+            end
+
+            δ, λ = find_arb_pos(pool, p/γ)
             # If either is zero, the other is numerically imprecise
             if !initial && (iszero(δ) || iszero(λ))
                 return
@@ -318,13 +324,19 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
     else
         initial = true
         for pool in flip_sides.(get_lower_pools(cfmm))
-            δ, λ = find_arb_pos(pool, γ/p)
+            if is_empty_pool(pool)
+                initial = false
+                continue
+            end
+
+            δ, λ = find_arb_pos(pool, 1/(γ*p))
             # If either is zero, the other is numerically imprecise
             if !initial && (iszero(δ) || iszero(λ))
                 return
             end
             Δ[2] += δ
             Λ[1] += λ
+
             initial = false
         end
         Δ[2] /= γ
