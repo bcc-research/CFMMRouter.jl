@@ -346,7 +346,7 @@ function max_amount_pos(t::BoundedProduct{T}) where T
 end
 
 function forward_amount(t::BoundedProduct{T}, δ) where T
-    λ = t.k/(t.R_1 + t.α + δ) - (t.R_2 + t.β)
+    λ = (t.R_2 + t.β) - t.k/(t.R_1 + t.α + δ) 
     return min(t.R_2, λ)
 end
 

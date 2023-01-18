@@ -49,7 +49,7 @@ function test_optimality_conditions_met(c, Δ, Λ, cfmm::UniV3)
         @test isapprox(price_impact₊(Δ), p_opt, atol=1e-6)
         return
     else
-        price_impact₋(δ) = ForwardDiff.gradient(x->CR.forward_trade(x, cfmm), δ)[2]
+        price_impact₋(δ) = 1/ForwardDiff.gradient(x->CR.forward_trade(x, cfmm), δ)[2]
         @test isapprox(price_impact₋(Δ), p_opt, atol=1e-6)
         return
     end
