@@ -208,18 +208,27 @@ mutable struct UniV3{T} <: CFMM{T}
     liquidity::Vector{T}
     γ::T
     Ai::Vector{Int}
+    function UniV3(current_price, lower_ticks, liquidity, γ, Ai)
+        T = eltype(lower_ticks)
+        current_tick = searchsortedlast(lower_ticks, current_price, rev=true)
+        return new{T}(
+            current_price,
+            current_tick,
+            lower_ticks,
+            liquidity,
+            γ,
+            Ai
+        )
+    end
 end
 
 tick_high_price(cfmm::UniV3{T}, idx) where T = cfmm.lower_ticks[idx]
-tick_high_price(cfmm) = tick_high_price(cfmm, cfmm.current_tick)
-
 function tick_low_price(cfmm::UniV3{T}, idx) where T
     if idx < length(cfmm.lower_ticks) 
         return cfmm.lower_ticks[idx + 1]
     end
     return zero(T)
 end
-tick_low_price(cfmm) = tick_low_price(cfmm, cfmm.current_tick)
 
 struct BoundedProduct{T}
     k::T
@@ -232,10 +241,7 @@ end
 max_price(t::BoundedProduct{T}) where T = t.k/(t.α^2)
 min_price(t::BoundedProduct{T}) where T = (t.β^2)/t.k
 curr_price(t::BoundedProduct{T}) where T = (t.R_2 + t.β)/(t.R_1 + t.α)
-
 is_empty_pool(t::BoundedProduct{T}) where T = iszero(t.k)
-
-# Flips the sides of a bounded product CFMM
 flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.R_2, t.R_1)
 
 
@@ -257,11 +263,7 @@ function compute_at_tick(cfmm::UniV3{T}, idx) where T
     end
 
     R_1 = sqrt(k/p) - α
-    if iszero(R_1 + α)
-        R_2 = 0.0
-    else
-        R_2 = k/(R_1 + α) - β
-    end
+    R_2 = sqrt(k*p) - β
 
     return BoundedProduct{T}(k, α, β, R_1, R_2)
 end

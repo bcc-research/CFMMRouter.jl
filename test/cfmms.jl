@@ -115,14 +115,13 @@ end
 
     # UniV3 pool params
     current_price = 15.0
-    current_tick = 3
     lower_ticks = [30., 20, 10, 5]
     liquidity = [1.0, 2.0, 1.5, 0.0]
     Ai = [1, 2]
     
     @testset "no fees" begin
         γ = 1.0
-        cfmm = UniV3(current_price, current_tick, lower_ticks, liquidity, γ, Ai)
+        cfmm = UniV3(current_price, lower_ticks, liquidity, γ, Ai)
 
         # Opt trade == 0
         v = [15.0, 1.0]
@@ -200,31 +199,6 @@ end
         test_optimality_conditions_met(v, Δ, Λ, cfmm)
         
     end
-
-    # @testset "update_reserves" begin
-    #     γ = 1.0
-    #     cfmm = UniV3(current_price, current_tick, lower_ticks, liquidity, γ, Ai)
-    #     # same interval 
-    #     v = [12., 0.]
-    #     find_arb!(Δ, Λ, cfmm, v)
-    #     update_reserves!(cfmm, Δ, Λ, v)
-    #     @test cfmm.current_price ≈ 12.0
-    #     @test cfmm.current_tick = 3
-
-    #     # prev interval
-    #     v = [22., 0.]
-    #     find_arb!(Δ, Λ, cfmm, v)
-    #     update_reserves!(cfmm, Δ, Λ, v)
-    #     @test (cfmm.current_price ≈ 22.0)
-    #     @test cfmm.current_tick = 4
-
-    #     # next interval
-    #     v = [8., 0.]
-    #     find_arb!(Δ, Λ, cfmm, v)
-    #     update_reserves!(cfmm, Δ, Λ, v)
-    #     @test (cfmm.current_price ≈ 8.0)
-    #     @test cfmm.current_tick = 2
-    # end
 
 end
 end
