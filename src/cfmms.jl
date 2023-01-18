@@ -297,29 +297,35 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
 
     # No-arb interval
     if γ*cfmm.current_price <= p <= cfmm.current_price/γ
+        @info "no arb"
         return nothing
     end
 
     if p < γ*cfmm.current_price
+        initial = true
         for pool in get_upper_pools(cfmm)
-            δ, λ = find_arb_pos(pool, p)
+            δ, λ = find_arb_pos(pool, γ*p)
             # If either is zero, the other is numerically imprecise
-            if iszero(δ) || iszero(λ)
+            if !initial && (iszero(δ) || iszero(λ))
                 return
             end
             Δ[1] += δ
             Λ[2] += λ
+
+            initial = false
         end
         Δ[1] /= γ
     else
-        for pool in flip_sides.(get_upper_pools(cfmm))
-            δ, λ = find_arb_pos(pool, 1/p)
+        initial = true
+        for pool in flip_sides.(get_lower_pools(cfmm))
+            δ, λ = find_arb_pos(pool, γ/p)
             # If either is zero, the other is numerically imprecise
-            if iszero(δ) || iszero(λ)
+            if !initial && (iszero(δ) || iszero(λ))
                 return
             end
             Δ[2] += δ
             Λ[1] += λ
+            initial = false
         end
         Δ[2] /= γ
     end
@@ -339,7 +345,33 @@ function max_amount_pos(t::BoundedProduct{T}) where T
     return 0.0
 end
 
-function forward_trade(Δ, cfmm::UniV3{T}) where {T}
+function forward_amount(t::BoundedProduct{T}, δ) where T
+    λ = t.k/(t.R_1 + t.α + δ) - (t.R_2 + t.β)
+    return min(t.R_2, λ)
+end
+
+# Weirdly enough this function is general, idk if worth generalizing
+function trade_through_pools(δ, pools)
+    λ = 0.0
+
+    for pool in pools
+        max_amount = max_amount_pos(pool)
+
+        if max_amount > δ
+            λ += forward_amount(pool, δ)
+            return λ
+        end
+        # If not, add all reserves
+        λ += pool.R_2
+
+        δ -= max_amount
+    end
+
+    # We've exhausted all liquidity
+    return λ
+end
+
+function forward_trade(Δ, cfmm::UniV3{T}) where T
     # Construct reserves at current tick
     γ = cfmm.γ
 
@@ -348,42 +380,8 @@ function forward_trade(Δ, cfmm::UniV3{T}) where {T}
     end
 
     if Δ[1] > 0
-        δ = γ*Δ[1]
-        λ = 0.0
-        for idx in cfmm.current_tick:length(cfmm.lower_ticks)
-            t = compute_at_tick(cfmm, idx)
-            max_amount = max_amount_pos(t)
-
-            if max_amount > δ
-                λ += δ*(t.R_2 + t.β)/(t.R_1 + t.α + δ)
-                return λ
-            end
-            # If not, add all reserves
-            λ += t.R_2
-
-            δ -= max_amount
-        end
-
-        # We've exhausted all liquidity
-        return λ
+        return trade_through_pools(γ*Δ[1], get_upper_pools(cfmm))
     else
-        δ = γ*Δ[2]
-        λ = 0.0
-        for idx in cfmm.current_tick:-1:1
-            t = compute_at_tick(cfmm, idx)
-            max_amount = max_amount_pos(flip_sides(t))
-
-            if max_amount > δ
-                λ += δ*(t.R_2 + t.β)/(t.R_1 + t.α + δ)
-                return λ
-            end
-            # If not, add all reserves
-            λ += t.R_2
-
-            δ -= max_amount
-        end
-
-        # We've exhausted all liquidity
-        return λ
+        return trade_through_pools(γ*Δ[2], flip_sides.(get_lower_pools(cfmm)))
     end
 end
