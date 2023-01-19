@@ -238,8 +238,8 @@ struct BoundedProduct{T}
     R_2::T
 end
 
-max_price(t::BoundedProduct{T}) where T = t.k/(t.α^2)
-min_price(t::BoundedProduct{T}) where T = (t.β^2)/t.k
+max_price(t::BoundedProduct{T}) where T = t.α > 0 ? t.k/(t.α^2) : typemax(T)
+min_price(t::BoundedProduct{T}) where T = t.k > 0 ? (t.β^2)/t.k : zero(T)
 curr_price(t::BoundedProduct{T}) where T = (t.R_2 + t.β)/(t.R_1 + t.α)
 is_empty_pool(t::BoundedProduct{T}) where T = iszero(t.k)
 flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.R_2, t.R_1)
@@ -281,7 +281,7 @@ function find_arb_pos(t::BoundedProduct{T}, price) where T
         return 0.0, 0.0
     end
 
-    δ_max = (t.R_1 + t.α)*(t.R_2/t.β) 
+    δ_max = t.k/t.β - (t.R_1 + t.α)
     if δ >= δ_max
         return δ_max, t.R_2
     end
@@ -315,7 +315,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
             δ, λ = find_arb_pos(pool, p/γ)
             # If either is zero, the other is numerically imprecise
             if !initial && (iszero(δ) || iszero(λ))
-                return
+                break
             end
             Δ[1] += δ
             Λ[2] += λ
@@ -334,7 +334,7 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
             δ, λ = find_arb_pos(pool, 1/(γ*p))
             # If either is zero, the other is numerically imprecise
             if !initial && (iszero(δ) || iszero(λ))
-                return
+                break
             end
             Δ[2] += δ
             Λ[1] += λ
@@ -352,7 +352,7 @@ end
 # Compute max amount that can be traded at current tick
 function max_amount_pos(t::BoundedProduct{T}) where T 
     if t.β > 0
-        return (t.R_1 + t.α)*t.R_2/t.β
+        return t.k/t.β - (t.R_1 + t.α)
     elseif t.α > 0
         return typemax(T)
     end

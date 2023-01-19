@@ -161,7 +161,7 @@ end
 
     @testset "fees" begin
         γ = 0.997
-        cfmm = UniV3(current_price, current_tick, lower_ticks, liquidity, γ, Ai)
+        cfmm = UniV3(current_price, lower_ticks, liquidity, γ, Ai)
 
         # Opt trade == 0 (no arb interval)
         v = [15.0*(1+γ)/2, 1.0]
