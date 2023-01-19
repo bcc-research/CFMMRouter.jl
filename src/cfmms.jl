@@ -300,7 +300,6 @@ function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVec
 
     # No-arb interval
     if γ*cfmm.current_price <= p <= cfmm.current_price/γ
-        @info "no arb"
         return nothing
     end
 
