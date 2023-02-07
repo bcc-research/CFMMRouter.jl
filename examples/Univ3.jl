@@ -4,7 +4,7 @@ This example illustrates how to setup uniswapv3 pools
 =#
 
 using CFMMRouter
-using LinearAlgebra, SparseArrays, StaticArrays
+using LinearAlgebra
 
 
 ## UniV3 pool parameters
