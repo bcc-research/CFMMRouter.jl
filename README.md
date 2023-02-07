@@ -15,7 +15,7 @@ For more information, check out the [documentation](https://bcc-research.github.
 ## Quick Start
 First, add the package locally.
 ```julia 
-using Pkg; Pkg.add(url="https://github.com/bcc-research/CFMMRouter.jl")
+using Pkg; Pkg.add("CFMMRouter")
 ```
 
 Make some swap pools.

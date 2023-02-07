@@ -8,7 +8,6 @@ Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 LBFGSB = "5be7bae1-8223-5378-bac3-9e7378a2f6e6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
-Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -17,14 +16,14 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Documenter = "0.27"
 LBFGSB = "0.4"
 Literate = "2"
-Optim = "1"
 StaticArrays = "1"
 julia = "1.7"
 
 [extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Random", "StatsBase"]
+test = ["Test", "Random", "StatsBase", "ForwardDiff"]

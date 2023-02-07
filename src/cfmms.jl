@@ -200,153 +200,244 @@ end
 #   |          |         |
 #   L1         L2        L3
 #   |          |         | 
+@doc raw"""
+    UniV3(current_price, lower_ticks, liquidity, γ, Ai)
 
+Creates a two coin Uniswap v3 CFMM. This CFMM is a collection of 
+[BoundedProduct](@ref) pools with disjoint price intervals.
+Prices refer to the amount of asset 2 per unit of asset 1.
+The `lower_ticks` vector stores the prices in decreasing order (i.e., asset 2
+gets more expensive as the index increases).
+The `k+1`st price, where `k` is the number of pools, is assumed to be `Inf`.
+The `i`th entry of the `liquidity` vector stores the invariant of each pool 
+between price `p[i]` and `p[i+1]`. We use the square of the invariant in the
+paper, defined as
+```math
+\varphi(R) = (R_1 + \alpha)(R_2 + \beta).
+```
+As before `γ` is the fee rate, and the `Ai` vector maps local to global indices.
+
+For more, see An Eﬃcient Algorithm for Optimal Routing Through Constant 
+Function Market Makers.
+"""
 mutable struct UniV3{T} <: CFMM{T}
-    @add_two_coin_fields
-    current_price :: T
-    current_tick_index :: Int #This is the index of the maximal tick with price lower than current_price in the ticks dictionary
-    ticks #This is the tick mapping sorted by price
-    function UniV3(R,γ,idx,current_price,current_tick_index,ticks)
-        γ_T, idx_uint, T = two_coin_check_cast(R, γ, idx)
+    current_price::T
+    current_tick::Int
+    lower_ticks::Vector{T}
+    liquidity::Vector{T}
+    γ::T
+    Ai::Vector{Int}
+    function UniV3(current_price, lower_ticks, liquidity, γ, Ai)
+        T = eltype(lower_ticks)
+        current_tick = searchsortedlast(lower_ticks, current_price, rev=true)
         return new{T}(
-            MVector{2,T}(R),
-            γ_T,
-            MVector{2,UInt}(idx_uint),
             current_price,
-            current_tick_index,
-            ticks
+            current_tick,
+            lower_ticks,
+            liquidity,
+            γ,
+            Ai
         )
     end
 end
 
-## See univ3 whitepaper
-function virtual_reserves(P,L)
-    sP = sqrt(P)
-    x = L/sP
-    y = L*sP
-    return x,y
+# Returns the higher price of interval idx
+tick_high_price(cfmm::UniV3{T}, idx) where T = cfmm.lower_ticks[idx]
+
+# Returns the lower price of interval idx
+function tick_low_price(cfmm::UniV3{T}, idx) where T
+    if idx < length(cfmm.lower_ticks) 
+        return cfmm.lower_ticks[idx + 1]
+    end
+    return zero(T)
 end
 
-function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3{T}, v::VT) where {T, VT<:AbstractVector{T}} 
-    current_price, current_tick_index, γ, ticks = cfmm.current_price, cfmm.current_tick_index, cfmm.γ, cfmm.ticks
-    Δ[1] = 0
-    Δ[2] = 0
+@doc raw"""
+    BoundedProduct(k, α, β, R_1, R_2)
 
-    Λ[1] = 0
-    Λ[2] = 0
+Creates a bounded liquidity CFMM with invariant
+```math
+\varphi(R) = (R_1 + \alpha)(R_2 + \beta).
+```
 
-    #target_price = max(min(v[1]/v[2]/γ,2.0^64),1/2.0^64) #including out of bounds check here
-    target_price = v[1]/v[2]
-    if (target_price*γ < current_price) && (current_price < target_price * 1/(γ))
+For more, see An Eﬃcient Algorithm for Optimal Routing Through Constant 
+Function Market Makers.
+"""
+struct BoundedProduct{T}
+    k::T
+    α::T
+    β::T
+    R_1::T
+    R_2::T
+end
+
+# Max price of bounded product pool (see Appendix A of paper)
+max_price(t::BoundedProduct{T}) where T = t.α > 0 ? t.k/(t.α^2) : typemax(T)
+
+# Min price of bounded product pool (see Appendix A of paper)
+min_price(t::BoundedProduct{T}) where T = t.k > 0 ? (t.β^2)/t.k : zero(T)
+
+# Current price, which comes directly from the invariant (eq (4))
+curr_price(t::BoundedProduct{T}) where T = (t.R_2 + t.β)/(t.R_1 + t.α)
+is_empty_pool(t::BoundedProduct{T}) where T = iszero(t.k)
+flip_sides(t::BoundedProduct{T}) where T = BoundedProduct{T}(t.k, t.β, t.α, t.R_2, t.R_1)
+
+
+# Computes the properties of a specific tick (which is just a bounded product
+# CFMM) at the specified index
+function compute_at_tick(cfmm::UniV3{T}, idx) where T
+    k = cfmm.liquidity[idx]
+    pminus = tick_low_price(cfmm, idx)
+    pplus = tick_high_price(cfmm, idx)
+    α = sqrt(k/pplus)
+    β = sqrt(k*pminus)
+
+    if idx > cfmm.current_tick
+        p = pplus
+    elseif idx < cfmm.current_tick
+        p = pminus
+    else
+        p = cfmm.current_price
+    end
+
+    R_1 = sqrt(k/p) - α
+    R_2 = sqrt(k*p) - β
+
+    return BoundedProduct{T}(k, α, β, R_1, R_2)
+end
+
+# Lazy maps
+get_upper_pools(cfmm::UniV3{T}) where T = (compute_at_tick(cfmm, i) for i in cfmm.current_tick:length(cfmm.lower_ticks))
+get_lower_pools(cfmm::UniV3{T}) where T = (compute_at_tick(cfmm, i) for i in cfmm.current_tick:-1:1)
+
+# Considers fee-free arb in the (easy) case that the price is above the current price.
+# (This is enough since we can just swap the reserves and constants and re-solve the problem.)
+function find_arb_pos(t::BoundedProduct{T}, price) where T
+    # See Appendix A, geometric mean trading function
+    δ = sqrt(t.k/price) - (t.R_1 + t.α)
+
+    if δ <= 0
+        return 0.0, 0.0
+    end
+
+    δ_max = t.k/t.β - (t.R_1 + t.α)
+    if δ >= δ_max
+        return δ_max, t.R_2
+    end
+    
+    λ = (t.R_2 + t.β) - sqrt(price*t.k)
+
+    return δ, λ
+end
+
+function find_arb!(Δ::VT, Λ::VT, cfmm::UniV3, v::VT) where {T, VT<:AbstractVector{T}}
+    p = v[1]/v[2]
+    γ = cfmm.γ
+
+    fill!(Δ, 0)
+    fill!(Λ, 0)
+
+    # No-arb interval (eq (17) in paper)
+    if γ*cfmm.current_price <= p <= cfmm.current_price/γ
         return nothing
     end
-    target_price = target_price/γ
-    if target_price >= current_price #iterate forwards in the tick mapping
-        i = 1
-        while true
-            next_tick_price = 0.0
-            try
-                next_tick_price = ticks[current_tick_index + i]["price"]
-            catch
-                ## Ran out of liquidity
+
+    if p < γ*cfmm.current_price
+        initial = true
+        for pool in get_upper_pools(cfmm)
+            # Find first non-empty pool
+            if is_empty_pool(pool)
+                initial = false
+                continue
+            end
+
+            # Arb this pool
+            δ, λ = find_arb_pos(pool, p/γ)
+            # If either is zero, the other is numerically imprecise
+            if !initial && (iszero(δ) || iszero(λ))
                 break
             end
-            if next_tick_price >= target_price ## so now we know that current_price <= target_price < next_tick_price
-                R = virtual_reserves(
-                    max(current_price,ticks[current_tick_index + i - 1]["price"]),
-                    ticks[current_tick_index + i - 1]["liquidity"]
-                    )
+            Δ[1] += δ
+            Λ[2] += λ
 
-                k = R[1]*R[2]
-
-                Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(target_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(target_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/target_price, R[2], k, 1)
-
-                break
-
-            elseif next_tick_price < target_price ## so now we know that current_price <= next_tick_price <= target_price
-                R = virtual_reserves(max(current_price,ticks[current_tick_index + i - 1]["price"]),ticks[current_tick_index + i - 1]["liquidity"])
-                k = R[1]*R[2]
-
-                Δ[1] += prod_arb_δ(1/next_tick_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(next_tick_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(next_tick_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/next_tick_price, R[2], k, 1)
-            end
-            i += 1
+            initial = false
         end
-
-    elseif target_price < current_price #iterate backwards in the tick mapping
-        i = 1
-        while true
-            prev_tick_price = 0.0
-            try
-                prev_tick_price = ticks[current_tick_index - i + 1]["price"]
-            catch 
-                # Ran out of liquidity
-               break
+        # get 'pre-fee' tendered amount
+        Δ[1] /= γ
+    else
+        initial = true
+        for pool in flip_sides.(get_lower_pools(cfmm))
+            if is_empty_pool(pool)
+                initial = false
+                continue
             end
-            if prev_tick_price <= target_price ## so now we know that prev_tick_price < target_price <=  current_price
-                R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error in which case there is no liquidity
-                    R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
-                catch
-                    break
-                end
-                k = R[1]*R[2]
-                
-                Δ[1] += prod_arb_δ(1/target_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(target_price, R[2], k, 1)
 
-                Λ[1] += prod_arb_λ(target_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/target_price, R[2], k, 1)
-
+            δ, λ = find_arb_pos(pool, 1/(γ*p))
+            # If either is zero, the other is numerically imprecise
+            if !initial && (iszero(δ) || iszero(λ))
                 break
-
-            elseif prev_tick_price > target_price ## so now we know that current_price <= next_tick_price <= target_price
-                R = [0.0,0.0]
-                try #it can happen that we are beyond the last tick and then this will have an indexing error error in which case there is no liquidity
-                    R = virtual_reserves(min(current_price,ticks[current_tick_index - i + 2]["price"]),ticks[current_tick_index - i + 1]["liquidity"])
-                catch
-                    break
-                end
-                k = R[1]*R[2]
-
-                Δ[1] += prod_arb_δ(1/prev_tick_price, R[1], k, 1)
-                Δ[2] += prod_arb_δ(prev_tick_price, R[2], k, 1)
-
-                Λ[1] += prod_arb_λ(prev_tick_price, R[1], k, 1)
-                Λ[2] += prod_arb_λ(1/prev_tick_price, R[2], k, 1)
             end
-            i += 1
+            Δ[2] += δ
+            Λ[1] += λ
+
+            initial = false
         end
+        Δ[2] /= γ
     end
-    Δ = Δ ./ γ
-    Λ = Λ ./ γ
+
     return nothing
 end
 
-function update_reserves!(c :: CFMM, Δ, Λ, V)
-    c.R .+= Δ - Λ
+
+# --- Testing helper functions below ---
+# --------------------------------------
+# Compute max amount that can be traded at current tick
+function max_amount_pos(t::BoundedProduct{T}) where T 
+    if t.β > 0
+        return t.k/t.β - (t.R_1 + t.α)
+    elseif t.α > 0
+        return typemax(T)
+    end
+    return 0.0
 end
 
-function update_reserves!(c :: UniV3, Δ, Λ, V)
-    c.R .+= Δ - Λ #update reserves
+function forward_amount(t::BoundedProduct{T}, δ) where T
+    λ = (t.R_2 + t.β) - t.k/(t.R_1 + t.α + δ) 
+    return min(t.R_2, λ)
+end
 
-    if any(Δ .!= 0) || any(Λ .!= 0) #current_tick & current_price only if outside the no arb interval
-        target_price = V[1]/V[2]
-        c.current_price = target_price
+# Weirdly enough this function is general, idk if worth generalizing
+function trade_through_pools(δ, pools)
+    λ = 0.0
 
-        #there are much more efficient ways to do this e.g. binary search but this should work for now
-        for i in eachindex(c.ticks)
-            if (c.ticks[i]["price"]<= c.current_price) & (c.current_price < c.ticks[i+1]["price"])
-                c.current_tick_index = i
-                break
-            end
+    for pool in pools
+        max_amount = max_amount_pos(pool)
+
+        if max_amount > δ
+            λ += forward_amount(pool, δ)
+            return λ
         end
+        # If not, add all reserves
+        λ += pool.R_2
+
+        δ -= max_amount
+    end
+
+    # We've exhausted all liquidity
+    return λ
+end
+
+function forward_trade(Δ, cfmm::UniV3{T}) where T
+    # Construct reserves at current tick
+    γ = cfmm.γ
+
+    if iszero(Δ)
+        return 0.0
+    end
+
+    if Δ[1] > 0
+        return trade_through_pools(γ*Δ[1], get_upper_pools(cfmm))
+    else
+        return trade_through_pools(γ*Δ[2], flip_sides.(get_lower_pools(cfmm)))
     end
 end
