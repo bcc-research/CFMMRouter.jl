@@ -16,7 +16,6 @@ Constructs a router that finds a set of trades `(router.Δs, router.Λs)` throug
 which maximizes `objective`. The number of tokens `n_tokens` must be specified.
 """
 function Router(objective::O, cfmms::Vector{C}, n_tokens) where {T, O<:Objective, C<:CFMM{T}}
-    V = Vector{T}
     VT = Vector{Vector{typeof(objective).parameters[1]}}
     Δs = VT()
     Λs = VT()
