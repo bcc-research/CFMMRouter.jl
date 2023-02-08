@@ -21,8 +21,8 @@ function Router(objective::O, cfmms::Vector{C}, n_tokens) where {T, O<:Objective
     Λs = VT()
 
     for c in cfmms
-        push!(Δs, zero(c.R))
-        push!(Λs, zero(c.R))
+        push!(Δs, zerotrade(c))
+        push!(Λs, zerotrade(c))
     end
 
     return Router{O, T}(

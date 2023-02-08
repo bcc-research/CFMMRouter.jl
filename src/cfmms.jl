@@ -69,6 +69,9 @@ struct Curve{T} <: CFMM{T}
     β::T
 end
 
+# Fix later
+zerotrade(c::CFMM{T}) where T = zeros(c.R)
+
 # Two coin specific cases
 function two_coin_check_cast(R, γ, idx)
     length(R) != 2 && throw(ArgumentError("length of R must be 2 for *TwoCoin constructors"))
@@ -240,6 +243,9 @@ mutable struct UniV3{T} <: CFMM{T}
         )
     end
 end
+
+
+zerotrade(c::UniV3{T}) where T = zeros(T, 2)
 
 # Returns the higher price of interval idx
 tick_high_price(cfmm::UniV3{T}, idx) where T = cfmm.lower_ticks[idx]

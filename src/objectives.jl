@@ -122,8 +122,8 @@ end
 
 @inline function lower_limit(o::BasketLiquidation{T}) where {T}
     ret = Vector{T}(undef, length(o.Δin))
-    fill!(ret, eps())
-    ret[o.i] = one(T) + eps()
+    fill!(ret, sqrt(eps()))
+    ret[o.i] = one(T) + sqrt(eps())
     return ret
 end
 @inline upper_limit(o::BasketLiquidation{T}) where {T} = convert(T, Inf) .+ zero(o.Δin)
