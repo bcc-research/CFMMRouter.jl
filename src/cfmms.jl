@@ -70,7 +70,7 @@ struct Curve{T} <: CFMM{T}
 end
 
 # Fix later
-zerotrade(c::CFMM{T}) where T = zeros(c.R)
+zerotrade(c::CFMM{T}) where T = zero(c.R)
 
 # Two coin specific cases
 function two_coin_check_cast(R, γ, idx)
