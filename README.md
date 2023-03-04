@@ -51,5 +51,17 @@ These tests were run on a MacBook Pro with a 2.3GHz 8-Core Intel i9 processor.
 Several performance improvements are possible.
 ![alt text](https://github.com/bcc-research/CFMMRouter.jl/blob/main/benchmark/router_scaling.png)
 
+## Citing
+```
+@article{diamandis2023efficient,
+  title={An Efficient Algorithm for Optimal Routing Through Constant Function Market Makers},
+  author={Diamandis, Theo and Resnick, Max and Chitra, Tarun and Angeris, Guillermo},
+  journal={arXiv preprint arXiv:2302.04938},
+  year={2023}
+}
+```
+
 ## References
-G Angeris, T Chitra, A Evans, and S Boyd. [Optimal Routing for Constant Function Market Makers](https://angeris.github.io/papers/cfmm-routing.pdf)
+- T Diamandis, M Resnick, T Chitra, G Angeris. [An Efficient Algorithm for Optimal Routing Through Constant Function Market Makers](https://arxiv.org/abs/2302.04938)
+
+- G Angeris, T Chitra, A Evans, and S Boyd. [Optimal Routing for Constant Function Market Makers](https://angeris.github.io/papers/cfmm-routing.pdf)
