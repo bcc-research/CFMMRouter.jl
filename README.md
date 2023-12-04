@@ -5,12 +5,13 @@
 [![codecov](https://codecov.io/gh/bcc-research/CFMMRouter.jl/branch/main/graph/badge.svg?token=TYizMgRYNE)](https://codecov.io/gh/bcc-research/CFMMRouter.jl)
 
 ## Overview
-This package contains a fast solver for the CFMM Routing problem, as defined
-by Angeris et al. in [Optimal Routing for Constant Function Market Makers](https://angeris.github.io/papers/cfmm-routing.pdf). 
+This package contains a fast solver for the [CFMM Routing problem](https://angeris.github.io/papers/cfmm-routing.pdf). 
 We partially decompose the problem to enable fast solutions when the number
-of CFMMs is large relative to the number of tokens.
+of CFMMs is large relative to the number of tokens. We describe our algorithm 
+in detail in our paper, [An Efficient Algorithm for Optimal Routing Through Constant Function Market Makers](https://arxiv.org/abs/2302.04938).
 
-For more information, check out the [documentation](https://bcc-research.github.io/CFMMRouter.jl/dev/).
+
+For more information, also check out the [documentation](https://bcc-research.github.io/CFMMRouter.jl/dev/).
 
 ## Quick Start
 First, add the package locally.
