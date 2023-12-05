@@ -24,7 +24,7 @@ function grad! end
 @doc raw"""
     lower_limit(obj)
 
-Componentwise lower bound on argument `v` for objective [`f`](@ref).  
+Componentwise lower bound on argument `v` for objective [`f`](@ref).
 Returns a vector with length `length(v)` (number of tokens).
 """
 function lower_limit end
@@ -32,7 +32,7 @@ function lower_limit end
 @doc raw"""
     upper_limit(obj)
 
-Componentwise upper bound on argument `v` for objective [`f`](@ref).  
+Componentwise upper bound on argument `v` for objective [`f`](@ref).
 Returns a vector with length `length(v)` (number of tokens).
 """
 function upper_limit end
@@ -92,7 +92,7 @@ where `i` is the desired output token and `Δin` is the basket of tokens to be l
 struct BasketLiquidation{T} <: Objective
     i::Int
     Δin::Vector{T}
-    
+
     function BasketLiquidation(i::Integer, Δin::Vector{T}) where {T<:AbstractFloat}
         !(i > 0 && i <= length(Δin)) && throw(ArgumentError("Invalid index i"))
         return new{T}(
@@ -126,8 +126,12 @@ end
     ret[o.i] = one(T) + sqrt(eps())
     return ret
 end
-@inline upper_limit(o::BasketLiquidation{T}) where {T} = convert(T, Inf) .+ zero(o.Δin)
 
+@inline function upper_limit(o::BasketLiquidation{T}) where {T}
+    ret = o.Δin
+    ret[o.i] = convert(T, Inf)
+    return ret
+end
 
 @doc raw"""
     Swap(i, j, δ, n)
@@ -137,7 +141,7 @@ Swap objective for the routing problem with `n` tokens:
     \Psi_i - \mathbf{I}(\Psi_{[n]\setminus\{i,j\}} = 0,\; {\Psi_j = -\delta})
 ```
 where `i` is the desired output token, `j` is the input token, and `δ` the amount input.
-Note that this is shorthand for a BasketLiquidation objective where `Δin` is a one-hot vector. 
+Note that this is shorthand for a BasketLiquidation objective where `Δin` is a one-hot vector.
 """
 function Swap(i::Int, j::Int, δ::T, n::Int) where {T<:AbstractFloat}
     Δin = zeros(T, n)
