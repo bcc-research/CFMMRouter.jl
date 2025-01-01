@@ -13,7 +13,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-Documenter = "0.27"
+Documenter = "0.27, 1"
 LBFGSB = "0.4"
 Literate = "2"
 StaticArrays = "1"
