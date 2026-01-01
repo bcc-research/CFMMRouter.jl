@@ -1,7 +1,7 @@
 name = "CFMMRouter"
 uuid = "591468fd-1d79-403f-bb2b-3ef7f4d90130"
-authors = ["Guillermo Angeris", "Theo Diamandis"]
 version = "0.3.1"
+authors = ["Guillermo Angeris", "Theo Diamandis"]
 
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
@@ -13,7 +13,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-Documenter = "0.27"
+Documenter = "0.27, 1"
 LBFGSB = "0.4"
 Literate = "2"
 StaticArrays = "1"
